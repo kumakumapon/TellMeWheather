@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TellMeWeather ☀️ 明日の洗濯・服装チェック</title>
+  <meta name="description" content="明日の天気から、洗濯の可否と子どもの服装をアドバイスするWebアプリ">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-inner">
+      <h1 class="app-title">☀️ TellMeWeather</h1>
+      <p class="app-subtitle">明日の洗濯・服装チェック</p>
+    </div>
+  </header>
+
+  <nav class="app-nav">
+    <button id="nav-dashboard" class="nav-btn active">🏠 ダッシュボード</button>
+    <button id="nav-settings" class="nav-btn">⚙️ 設定</button>
+  </nav>
+
+  <main class="app-main">
+    <div id="error-banner" class="error-banner" style="display:none;"></div>
+
+    <!-- Dashboard View -->
+    <div id="view-dashboard">
+      <div id="loading" class="loading">
+        <div class="spinner"></div>
+        <p>天気データを取得中…</p>
+      </div>
+      <div id="dashboard-content" style="display:none;"></div>
+    </div>
+
+    <!-- Settings View -->
+    <div id="view-settings" style="display:none;">
+      <div id="settings-content"></div>
+    </div>
+  </main>
+
+  <footer class="app-footer">
+    <p>天気データ: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a></p>
+  </footer>
+
+  <!-- Components -->
+  <script src="components/weather.js"></script>
+  <script src="components/laundry.js"></script>
+  <script src="components/clothes.js"></script>
+  <script src="components/settings.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
