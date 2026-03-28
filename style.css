@@ -44,7 +44,7 @@ body {
 .app-header {
   background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
   color: var(--color-white);
-  padding: 16px 20px 12px;
+  padding: 10px 20px 8px;
   text-align: center;
   box-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }
@@ -96,7 +96,7 @@ body {
 /* ===== MAIN ===== */
 .app-main {
   flex: 1;
-  padding: 16px;
+  padding: 12px;
   max-width: 600px;
   width: 100%;
   margin: 0 auto;
@@ -142,8 +142,8 @@ body {
 .card {
   background: var(--color-white);
   border-radius: var(--radius);
-  padding: 16px;
-  margin-bottom: 14px;
+  padding: 12px;
+  margin-bottom: 10px;
   box-shadow: var(--shadow);
   border: 1px solid var(--color-border);
 }
@@ -170,42 +170,58 @@ body {
 }
 
 /* ===== WEATHER CARD ===== */
-.weather-date {
-  font-size: 0.9rem;
-  color: var(--color-text-light);
-  margin-bottom: 12px;
+.today-tomorrow-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
 }
 
-.weather-main {
+.day-col {
+  background: var(--color-primary-light);
+  border-radius: 8px;
+  padding: 10px 8px;
+  text-align: center;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 14px;
+  gap: 5px;
+}
+
+.day-col-header {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--color-primary-dark);
+}
+
+.day-col-date {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--color-text-light);
+}
+
+.day-col-main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
 }
 
 .weather-emoji {
-  font-size: 3rem;
+  font-size: 2.4rem;
   line-height: 1;
 }
 
 .weather-label {
-  font-size: 1.4rem;
+  font-size: 1rem;
   font-weight: 600;
   color: var(--color-text);
 }
 
-.weather-details {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  font-size: 0.95rem;
-}
-
 .weather-temp {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   font-weight: 600;
-  font-size: 1.1rem;
+  font-size: 0.95rem;
 }
 
 .temp-max { color: #e74c3c; }
@@ -213,6 +229,7 @@ body {
 
 .weather-precip,
 .weather-wind {
+  font-size: 0.78rem;
   color: var(--color-text-light);
 }
 
@@ -297,52 +314,62 @@ body {
 }
 
 /* ===== WEEK FORECAST ===== */
-.week-list {
+.week-cols {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  -webkit-overflow-scrolling: touch;
 }
 
-.week-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 10px;
+.week-col {
+  flex: 1;
+  min-width: 50px;
   background: var(--color-primary-light);
   border-radius: 8px;
-  font-size: 0.9rem;
+  padding: 8px 4px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
 }
 
-.week-date {
-  flex: 0 0 90px;
-  font-weight: 500;
+.week-col-date {
+  font-size: 0.7rem;
+  color: var(--color-text-light);
+}
+
+.week-col-day {
+  font-size: 0.78rem;
+  font-weight: 600;
   color: var(--color-text);
 }
 
-.week-emoji { font-size: 1.1rem; flex: 0 0 28px; text-align: center; }
-
-.week-temp {
-  flex: 0 0 80px;
-  font-size: 0.88rem;
-  text-align: center;
+.week-col-emoji {
+  font-size: 1.3rem;
 }
 
-.week-rain {
-  flex: 0 0 55px;
-  font-size: 0.88rem;
+.week-col-temp {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-size: 0.7rem;
+}
+
+.week-col-rain {
+  font-size: 0.68rem;
   color: var(--color-text-light);
-  text-align: center;
 }
 
-.week-laundry {
-  flex: 1;
-  font-size: 0.82rem;
-  font-weight: 600;
-  text-align: right;
+.week-col-laundry {
+  font-size: 0.8rem;
+  font-weight: 700;
 }
 
-.week-laundry.ok  { color: var(--color-ok); }
-.week-laundry.ng  { color: var(--color-ng); }
+.week-col-laundry.ok { color: var(--color-ok); }
+.week-col-laundry.ng { color: var(--color-ng); }
 
 /* ===== SETTINGS ===== */
 .settings-form {
@@ -480,7 +507,7 @@ body {
 /* ===== RESPONSIVE ===== */
 @media (min-width: 480px) {
   .app-title { font-size: 1.8rem; }
-  .weather-emoji { font-size: 3.5rem; }
+  .weather-emoji { font-size: 2.8rem; }
 }
 
 @media (prefers-color-scheme: dark) {
