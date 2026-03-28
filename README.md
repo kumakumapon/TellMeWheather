@@ -14,7 +14,7 @@
 
 - 🧺 **洗濯の可否**（外干しOK / 部屋干し推奨 など）
 - 👕 **子どもの服装アドバイス**（お子さんの学年・体感温度に合わせた推奨コーデ）
-- 📅 **週間見通し**（5日間の簡易天気と洗濯チャンス）
+- 📅 **週間見通し**（明日・明後日の簡易天気と洗濯チャンス）
 
 を一画面でまとめて表示します。
 
@@ -57,7 +57,8 @@
 | 項目 | 内容 |
 |------|------|
 | フロントエンド | HTML / CSS / JavaScript（バニラ） |
-| 天気API | [Open-Meteo](https://open-meteo.com/)（無料・APIキー不要） |
+| 天気API | [wttr.in](https://wttr.in/)（無料・APIキー不要・3日間予報） |
+| ジオコーディング | [Nominatim](https://nominatim.openstreetmap.org/)（OpenStreetMap、無料・APIキー不要） |
 | データ保存 | `localStorage`（ユーザー設定・キャッシュ） |
 | ホスティング | GitHub Pages |
 
