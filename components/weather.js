@@ -51,73 +51,77 @@ async function fetchWeather(lat, lon) {
 
 function renderWeatherCard(data, cityName) {
   const daily = data.daily;
-  // index 0 = today, index 1 = tomorrow
-  const tomorrowIdx = 1;
-  const code = daily.weather_code[tomorrowIdx];
-  const info = getWeatherInfo(code);
-  const maxTemp = Math.round(daily.temperature_2m_max[tomorrowIdx]);
-  const minTemp = Math.round(daily.temperature_2m_min[tomorrowIdx]);
-  const precip = daily.precipitation_sum[tomorrowIdx] ?? 0;
-  const precipProb = daily.precipitation_probability_max[tomorrowIdx] ?? 0;
-  const wind = Math.round(daily.wind_speed_10m_max[tomorrowIdx] ?? 0);
+  const DAYS = ['日','月','火','水','木','金','土'];
 
-  const date = new Date(daily.time[tomorrowIdx]);
-  const dateStr = `${date.getMonth() + 1}月${date.getDate()}日（${['日','月','火','水','木','金','土'][date.getDay()]}）`;
-
-  return {
-    html: `
-      <div class="weather-card card">
-        <div class="card-title">🌤 明日の天気 <span class="city-name">${cityName}</span></div>
-        <div class="weather-date">${dateStr}</div>
-        <div class="weather-main">
+  function buildDayBlock(idx, headerLabel) {
+    const code = daily.weather_code[idx];
+    const info = getWeatherInfo(code);
+    const maxTemp = Math.round(daily.temperature_2m_max[idx]);
+    const minTemp = Math.round(daily.temperature_2m_min[idx]);
+    const precipProb = daily.precipitation_probability_max[idx] ?? 0;
+    const wind = Math.round(daily.wind_speed_10m_max[idx] ?? 0);
+    const date = new Date(daily.time[idx]);
+    const dateStr = `${date.getMonth() + 1}/${date.getDate()}(${DAYS[date.getDay()]})`;
+    return `
+      <div class="day-col">
+        <div class="day-col-header">${headerLabel} <span class="day-col-date">${dateStr}</span></div>
+        <div class="day-col-main">
           <span class="weather-emoji">${info.emoji}</span>
           <span class="weather-label">${info.label}</span>
         </div>
-        <div class="weather-details">
-          <div class="weather-temp">
-            <span class="temp-max">↑${maxTemp}℃</span>
-            <span class="temp-min">↓${minTemp}℃</span>
-          </div>
-          <div class="weather-precip">☔ 降水確率 ${precipProb}%</div>
-          <div class="weather-wind">💨 風速 ${wind} km/h</div>
+        <div class="weather-temp">
+          <span class="temp-max">↑${maxTemp}℃</span>
+          <span class="temp-min">↓${minTemp}℃</span>
+        </div>
+        <div class="weather-precip">☔ ${precipProb}%</div>
+        <div class="weather-wind">💨 ${wind}km/h</div>
+      </div>
+    `;
+  }
+
+  // index 0 = today, index 1 = tomorrow
+  return {
+    html: `
+      <div class="weather-card card">
+        <div class="card-title">🌤 今日・明日の天気 <span class="city-name">${cityName}</span></div>
+        <div class="today-tomorrow-grid">
+          ${buildDayBlock(0, '今日')}
+          ${buildDayBlock(1, '明日')}
         </div>
       </div>
     `,
-    maxTemp,
-    minTemp,
-    precip,
-    precipProb,
-    wind,
   };
 }
 
 function renderWeekForecast(data) {
   const daily = data.daily;
-  let rows = '';
-  // Show days 1-5 (tomorrow + 4 more)
-  for (let i = 1; i <= 5 && i < daily.time.length; i++) {
+  const DAYS = ['日','月','火','水','木','金','土'];
+  let cols = '';
+  // Show days 1-6 (tomorrow + 5 more)
+  for (let i = 1; i <= 6 && i < daily.time.length; i++) {
     const date = new Date(daily.time[i]);
-    const dayLabel = ['日','月','火','水','木','金','土'][date.getDay()];
-    const dateLabel = `${date.getMonth()+1}/${date.getDate()}(${dayLabel})`;
+    const dayLabel = DAYS[date.getDay()];
+    const dateLabel = `${date.getMonth()+1}/${date.getDate()}`;
     const info = getWeatherInfo(daily.weather_code[i]);
     const maxT = Math.round(daily.temperature_2m_max[i]);
     const minT = Math.round(daily.temperature_2m_min[i]);
     const prob = daily.precipitation_probability_max[i] ?? 0;
     const laundryOk = prob < 50;
-    rows += `
-      <div class="week-row">
-        <span class="week-date">${dateLabel}</span>
-        <span class="week-emoji">${info.emoji}</span>
-        <span class="week-temp"><span class="temp-max">↑${maxT}</span> <span class="temp-min">↓${minT}</span></span>
-        <span class="week-rain">☔${prob}%</span>
-        <span class="week-laundry ${laundryOk ? 'ok' : 'ng'}">${laundryOk ? '外干し◎' : '室内干し'}</span>
+    cols += `
+      <div class="week-col">
+        <div class="week-col-date">${dateLabel}</div>
+        <div class="week-col-day">${dayLabel}</div>
+        <div class="week-col-emoji">${info.emoji}</div>
+        <div class="week-col-temp"><span class="temp-max">↑${maxT}</span><span class="temp-min">↓${minT}</span></div>
+        <div class="week-col-rain">☔${prob}%</div>
+        <div class="week-col-laundry ${laundryOk ? 'ok' : 'ng'}">${laundryOk ? '◎' : '✕'}</div>
       </div>
     `;
   }
   return `
     <div class="week-card card">
-      <div class="card-title">📅 週間見通し</div>
-      <div class="week-list">${rows}</div>
+      <div class="card-title">📅 週間見通し（明日〜）</div>
+      <div class="week-cols">${cols}</div>
     </div>
   `;
 }
