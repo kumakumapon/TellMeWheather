@@ -1,52 +1,115 @@
 // Weather component: API calls and weather data display
 
-const WMO_CODES = {
-  0:  { label: '快晴',         emoji: '☀️' },
-  1:  { label: 'ほぼ晴れ',     emoji: '🌤️' },
-  2:  { label: '一部曇り',     emoji: '⛅' },
-  3:  { label: '曇り',         emoji: '☁️' },
-  45: { label: '霧',           emoji: '🌫️' },
-  48: { label: '霧（着氷）',   emoji: '🌫️' },
-  51: { label: '霧雨（弱）',   emoji: '🌦️' },
-  53: { label: '霧雨',         emoji: '🌦️' },
-  55: { label: '霧雨（強）',   emoji: '🌧️' },
-  61: { label: '雨（弱）',     emoji: '🌧️' },
-  63: { label: '雨',           emoji: '🌧️' },
-  65: { label: '雨（強）',     emoji: '🌧️' },
-  71: { label: '雪（弱）',     emoji: '🌨️' },
-  73: { label: '雪',           emoji: '❄️' },
-  75: { label: '雪（強）',     emoji: '❄️' },
-  77: { label: '雪粒',         emoji: '🌨️' },
-  80: { label: 'にわか雨（弱）', emoji: '🌦️' },
-  81: { label: 'にわか雨',     emoji: '🌧️' },
-  82: { label: 'にわか雨（強）', emoji: '⛈️' },
-  85: { label: 'にわか雪（弱）', emoji: '🌨️' },
-  86: { label: 'にわか雪（強）', emoji: '❄️' },
-  95: { label: '雷雨',         emoji: '⛈️' },
-  96: { label: 'ひょうを伴う雷雨', emoji: '⛈️' },
-  99: { label: 'ひょうを伴う雷雨（強）', emoji: '⛈️' },
+// WorldWeatherOnline (WWO) codes used by wttr.in
+const WWO_CODES = {
+  113: { label: '快晴',               emoji: '☀️' },
+  116: { label: 'ほぼ晴れ',           emoji: '🌤️' },
+  119: { label: '一部曇り',           emoji: '⛅' },
+  122: { label: '曇り',               emoji: '☁️' },
+  143: { label: '霧',                 emoji: '🌫️' },
+  176: { label: 'にわか雨',           emoji: '🌦️' },
+  179: { label: 'にわか雪',           emoji: '🌨️' },
+  182: { label: '霙',                 emoji: '🌧️' },
+  185: { label: '氷雨',               emoji: '🌧️' },
+  200: { label: '雷雨',               emoji: '⛈️' },
+  227: { label: '吹雪',               emoji: '❄️' },
+  230: { label: '猛吹雪',             emoji: '❄️' },
+  248: { label: '霧',                 emoji: '🌫️' },
+  260: { label: '霧（着氷）',         emoji: '🌫️' },
+  263: { label: '霧雨（弱）',         emoji: '🌦️' },
+  266: { label: '霧雨',               emoji: '🌦️' },
+  281: { label: '氷雨',               emoji: '🌧️' },
+  284: { label: '氷雨（強）',         emoji: '🌧️' },
+  293: { label: '雨（弱）',           emoji: '🌧️' },
+  296: { label: '雨（弱）',           emoji: '🌧️' },
+  299: { label: '雨',                 emoji: '🌧️' },
+  302: { label: '雨',                 emoji: '🌧️' },
+  305: { label: '雨（強）',           emoji: '🌧️' },
+  308: { label: '雨（強）',           emoji: '🌧️' },
+  311: { label: '霙（弱）',           emoji: '🌧️' },
+  314: { label: '霙',                 emoji: '🌧️' },
+  317: { label: '霙（弱）',           emoji: '🌧️' },
+  320: { label: '霙',                 emoji: '🌧️' },
+  323: { label: '雪（弱）',           emoji: '🌨️' },
+  326: { label: '雪（弱）',           emoji: '🌨️' },
+  329: { label: '雪',                 emoji: '❄️' },
+  332: { label: '雪',                 emoji: '❄️' },
+  335: { label: '雪（強）',           emoji: '❄️' },
+  338: { label: '大雪',               emoji: '❄️' },
+  350: { label: 'ひょう',             emoji: '🌨️' },
+  353: { label: 'にわか雨（弱）',     emoji: '🌦️' },
+  356: { label: 'にわか雨（強）',     emoji: '🌧️' },
+  359: { label: 'にわか雨（豪雨）',   emoji: '⛈️' },
+  362: { label: 'にわか霙（弱）',     emoji: '🌧️' },
+  365: { label: 'にわか霙',           emoji: '🌧️' },
+  368: { label: 'にわか雪（弱）',     emoji: '🌨️' },
+  371: { label: 'にわか雪（強）',     emoji: '❄️' },
+  374: { label: 'にわかひょう（弱）', emoji: '🌨️' },
+  377: { label: 'にわかひょう',       emoji: '🌨️' },
+  386: { label: '雷雨',               emoji: '⛈️' },
+  389: { label: '雷雨（強）',         emoji: '⛈️' },
+  392: { label: '雷雪',               emoji: '⛈️' },
+  395: { label: '雷雪（強）',         emoji: '⛈️' },
 };
 
 function getWeatherInfo(code) {
-  return WMO_CODES[code] || { label: '不明', emoji: '❓' };
+  return WWO_CODES[code] || { label: '不明', emoji: '❓' };
 }
 
 async function geocodeCity(cityName) {
-  const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cityName)}&count=1&language=ja&format=json`;
-  const res = await fetch(url);
+  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(cityName)}&format=json&limit=1&accept-language=ja`;
+  // Note: browsers block setting User-Agent via fetch; the browser's own User-Agent is sent automatically.
+  const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
   if (!res.ok) throw new Error('ジオコーディング失敗');
   const data = await res.json();
-  if (!data.results || data.results.length === 0) throw new Error(`「${cityName}」が見つかりません`);
-  return { lat: data.results[0].latitude, lon: data.results[0].longitude, name: data.results[0].name };
+  if (!data || data.length === 0) throw new Error(`「${cityName}」が見つかりません`);
+  const displayName = data[0].display_name.split(',')[0].trim();
+  return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon), name: displayName };
 }
 
 async function fetchWeather(lat, lon) {
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
-    `&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max` +
-    `&timezone=Asia%2FTokyo&forecast_days=7`;
+  const url = `https://wttr.in/${lat},${lon}?format=j1`;
   const res = await fetch(url);
   if (!res.ok) throw new Error('天気データ取得失敗');
-  return res.json();
+  const raw = await res.json();
+  return normalizeWttrData(raw);
+}
+
+function normalizeWttrData(raw) {
+  const daily = {
+    time: [],
+    weather_code: [],
+    temperature_2m_max: [],
+    temperature_2m_min: [],
+    precipitation_sum: [],
+    precipitation_probability_max: [],
+    wind_speed_10m_max: [],
+  };
+
+  for (const day of raw.weather) {
+    daily.time.push(day.date);
+    daily.temperature_2m_max.push(parseFloat(day.maxtempC));
+    daily.temperature_2m_min.push(parseFloat(day.mintempC));
+
+    // wttr.in provides 8 hourly slots per day at 0000, 0300, 0600, 0900, 1200, 1500, 1800, 2100
+    // Use the 1200 slot (index 4) as the representative daytime weather code
+    const midday = day.hourly[4] || day.hourly[0];
+    daily.weather_code.push(parseInt(midday.weatherCode, 10));
+
+    // Sum hourly precipitation for daily total
+    const precipSum = day.hourly.reduce((sum, h) => sum + parseFloat(h.precipMM || 0), 0);
+    daily.precipitation_sum.push(Math.round(precipSum * 10) / 10);
+
+    // Max chance of rain across all hourly slots
+    const maxProb = Math.max(...day.hourly.map(h => parseInt(h.chanceofrain || 0, 10)));
+    daily.precipitation_probability_max.push(maxProb);
+
+    // Max wind speed (already in km/h)
+    const maxWind = Math.max(...day.hourly.map(h => parseInt(h.windspeedKmph || 0, 10)));
+    daily.wind_speed_10m_max.push(maxWind);
+  }
+
+  return { daily };
 }
 
 function renderWeatherCard(data, cityName) {
@@ -97,8 +160,8 @@ function renderWeekForecast(data) {
   const daily = data.daily;
   const DAYS = ['日','月','火','水','木','金','土'];
   let cols = '';
-  // Show days 1-6 (tomorrow + 5 more)
-  for (let i = 1; i <= 6 && i < daily.time.length; i++) {
+  // Show from tomorrow onward for all available days
+  for (let i = 1; i < daily.time.length; i++) {
     const date = new Date(daily.time[i]);
     const dayLabel = DAYS[date.getDay()];
     const dateLabel = `${date.getMonth()+1}/${date.getDate()}`;
