@@ -63,13 +63,20 @@ async function loadDashboard(settings) {
     weatherData = await fetchWeather(lat, lon);
     setCachedWeather({ data: weatherData, cityName, ts: Date.now() });
   } catch (err) {
-    console.error(err);
+    console.error('Weather fetch error:', err);
     const cached = getCachedWeather();
     if (cached) {
       weatherData = cached.data;
       cityName = cached.cityName;
       const age = Math.round((Date.now() - cached.ts) / 60000);
-      showError(`⚠️ データ取得に失敗しました。前回のデータ（${age}分前）を表示しています。`);
+      // Only use cache if less than 24 hours old
+      if (age < 1440) {
+        showError(`⚠️ データ取得に失敗しました。前回のデータ（${age}分前）を表示しています。`);
+      } else {
+        showError(`⚠️ キャッシュが古すぎます（${age}分前）。新しいデータ取得に失敗しました: ${err.message}`);
+        showLoading(false);
+        return;
+      }
     } else {
       showError(`⚠️ データ取得に失敗しました: ${err.message}`);
       showLoading(false);
@@ -78,11 +85,19 @@ async function loadDashboard(settings) {
   }
 
   const daily = weatherData.daily;
+  
+  // Validate API response structure
+  if (!daily || !Array.isArray(daily.weather_code) || daily.weather_code.length < 2) {
+    throw new Error('Invalid API response: missing or incomplete daily data');
+  }
+  
   const tomorrowIdx = 1;
   const precip = daily.precipitation_sum[tomorrowIdx] ?? 0;
   const precipProb = daily.precipitation_probability_max[tomorrowIdx] ?? 0;
   const wind = daily.wind_speed_10m_max[tomorrowIdx] ?? 0;
   const maxTemp = daily.temperature_2m_max[tomorrowIdx];
+
+  console.log(`Weather data for tomorrow (${daily.time[tomorrowIdx]}): code=${daily.weather_code[tomorrowIdx]}, temp=${maxTemp}°C, precip=${precip}mm, precipProb=${precipProb}%`);
 
   const { html: weatherHtml } = renderWeatherCard(weatherData, cityName);
   const laundryHtml = renderLaundryAdvice(precip, precipProb, wind, settings);

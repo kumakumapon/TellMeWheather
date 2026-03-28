@@ -33,7 +33,16 @@ const WMO_CODES = {
 };
 
 function getWeatherInfo(code) {
-  return WMO_CODES[code] || { label: '不明', emoji: '❓' };
+  // Ensure code is a number (in case of string conversion from API or cache)
+  const codeNum = typeof code === 'string' ? parseInt(code, 10) : code;
+  
+  if (WMO_CODES[codeNum]) {
+    return WMO_CODES[codeNum];
+  }
+  
+  // Fallback for unknown codes - log for debugging
+  console.warn(`Unknown weather code: ${code} (type: ${typeof code})`);
+  return { label: '不明', emoji: '❓' };
 }
 
 async function geocodeCity(cityName) {
@@ -52,6 +61,16 @@ async function fetchWeather(lat, lon) {
   const res = await fetch(url);
   if (!res.ok) throw new Error('天気データ取得失敗');
   const raw = await res.json();
+  
+  // Validate response
+  if (!raw.daily) {
+    throw new Error('Invalid API response: missing daily data');
+  }
+  
+  console.log('API Response:', raw);
+  console.log('Weather codes:', raw.daily.weather_code);
+  console.log('Timezone:', raw.timezone);
+  
   return { daily: raw.daily };
 }
 

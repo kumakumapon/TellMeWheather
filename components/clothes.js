@@ -5,6 +5,8 @@ function getClothingAdvice(maxTemp, tempSensitivity) {
   const offset = tempSensitivity === 'cold' ? -2 : tempSensitivity === 'hot' ? +2 : 0;
   const adjusted = maxTemp + offset;
 
+  console.log(`Clothes calc: maxTemp=${maxTemp}°C, sensitivity=${tempSensitivity}, offset=${offset}, adjusted=${adjusted}°C`);
+
   let outfit = '';
   let items = [];
 

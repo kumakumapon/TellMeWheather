@@ -10,6 +10,8 @@ function getLaundryAdvice(precip, precipProb, wind, settings) {
   let label = '外干しOK';
   const comments = [];
 
+  console.log(`Laundry calc: precip=${precip}mm, precipProb=${precipProb}%, wind=${wind}km/h, threshold=${STRONG_WIND_THRESHOLD_KMH}km/h`);
+
   if (precip > 0 || precipProb >= 50) {
     status = 'ng';
     label = '部屋干し推奨';
