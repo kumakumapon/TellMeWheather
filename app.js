@@ -96,12 +96,14 @@ async function loadDashboard(settings) {
   const precipProb = daily.precipitation_probability_max[tomorrowIdx] ?? 0;
   const wind = daily.wind_speed_10m_max[tomorrowIdx] ?? 0;
   const maxTemp = daily.temperature_2m_max[tomorrowIdx];
+  const uvIndex = daily.uv_index_max ? (daily.uv_index_max[tomorrowIdx] ?? 0) : 0;
+  const fetchedAt = Date.now();
 
   console.log(`Weather data for tomorrow (${daily.time[tomorrowIdx]}): code=${daily.weather_code[tomorrowIdx]}, temp=${maxTemp}°C, precip=${precip}mm, precipProb=${precipProb}%`);
 
-  const { html: weatherHtml } = renderWeatherCard(weatherData, cityName);
+  const { html: weatherHtml } = renderWeatherCard(weatherData, cityName, fetchedAt);
   const laundryHtml = renderLaundryAdvice(precip, precipProb, wind, settings);
-  const clothesHtml = renderKidsClothes(settings.kids, maxTemp);
+  const clothesHtml = renderKidsClothes(settings.kids, maxTemp, precipProb, uvIndex);
   const weekHtml = renderWeekForecast(weatherData);
 
   document.getElementById('dashboard-content').innerHTML =
@@ -121,6 +123,9 @@ function renderSettingsView(settings) {
 
 document.addEventListener('DOMContentLoaded', () => {
   currentSettings = loadSettings();
+
+  // Global refresh handler (called from inline onclick in weather card)
+  window.refreshWeather = () => loadDashboard(currentSettings);
 
   // Nav buttons
   document.getElementById('nav-dashboard').addEventListener('click', () => {
