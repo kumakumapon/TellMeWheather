@@ -56,8 +56,18 @@ async function geocodeCity(cityName) {
   return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon), name: displayName };
 }
 
+function getUvLevel(uv) {
+  if (uv == null) return null;
+  const val = Math.round(uv);
+  if (uv <= 2) return { label: `UV ${val}（低い）`, cls: 'uv-low' };
+  if (uv <= 5) return { label: `UV ${val}（やや高）`, cls: 'uv-moderate' };
+  if (uv <= 7) return { label: `UV ${val}（高い）`, cls: 'uv-high' };
+  if (uv <= 10) return { label: `UV ${val}（非常に高い）`, cls: 'uv-very-high' };
+  return { label: `UV ${val}（危険）`, cls: 'uv-extreme' };
+}
+
 async function fetchWeather(lat, lon) {
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max&timezone=auto&forecast_days=7`;
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,uv_index_max&timezone=auto&forecast_days=7`;
   const res = await fetch(url);
   if (!res.ok) throw new Error('天気データ取得失敗');
   const raw = await res.json();
@@ -74,7 +84,7 @@ async function fetchWeather(lat, lon) {
   return { daily: raw.daily };
 }
 
-function renderWeatherCard(data, cityName) {
+function renderWeatherCard(data, cityName, lastUpdated) {
   const daily = data.daily;
   const DAYS = ['日','月','火','水','木','金','土'];
 
@@ -87,6 +97,11 @@ function renderWeatherCard(data, cityName) {
     const wind = Math.round(daily.wind_speed_10m_max[idx] ?? 0);
     const date = new Date(daily.time[idx]);
     const dateStr = `${date.getMonth() + 1}/${date.getDate()}(${DAYS[date.getDay()]})`;
+    const uvRaw = daily.uv_index_max ? daily.uv_index_max[idx] : null;
+    const uvLevel = getUvLevel(uvRaw);
+    const uvHtml = uvLevel
+      ? `<div class="weather-uv ${uvLevel.cls}">${uvLevel.label}</div>`
+      : '';
     return `
       <div class="day-col">
         <div class="day-col-header">${headerLabel} <span class="day-col-date">${dateStr}</span></div>
@@ -100,15 +115,24 @@ function renderWeatherCard(data, cityName) {
         </div>
         <div class="weather-precip">☔ ${precipProb}%</div>
         <div class="weather-wind">💨 ${wind}km/h</div>
+        ${uvHtml}
       </div>
     `;
   }
+
+  const updatedStr = lastUpdated
+    ? `<span class="last-updated">🕐 ${new Date(lastUpdated).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}更新</span>`
+    : '';
 
   // index 0 = today, index 1 = tomorrow
   return {
     html: `
       <div class="weather-card card">
-        <div class="card-title">🌤 今日・明日の天気 <span class="city-name">${cityName}</span></div>
+        <div class="card-title">
+          🌤 今日・明日の天気 <span class="city-name">${cityName}</span>
+          ${updatedStr}
+          <button class="refresh-btn" onclick="window.refreshWeather()" title="天気を更新">🔄</button>
+        </div>
         <div class="today-tomorrow-grid">
           ${buildDayBlock(0, '今日')}
           ${buildDayBlock(1, '明日')}

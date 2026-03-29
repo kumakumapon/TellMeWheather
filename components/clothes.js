@@ -1,7 +1,7 @@
 // Clothes advice component
 
 // tempSensitivity: 'cold' | 'normal' | 'hot'
-function getClothingAdvice(maxTemp, tempSensitivity) {
+function getClothingAdvice(maxTemp, tempSensitivity, precipProb, uvIndex) {
   const offset = tempSensitivity === 'cold' ? -2 : tempSensitivity === 'hot' ? +2 : 0;
   const adjusted = maxTemp + offset;
 
@@ -27,6 +27,19 @@ function getClothingAdvice(maxTemp, tempSensitivity) {
     items = [];
   }
 
+  // 降水確率 30% 以上なら傘を追加
+  if ((precipProb ?? 0) >= 30) {
+    items.push('折り畳み傘');
+  }
+
+  // UV 指数に応じて日焼け対策グッズを追加
+  if ((uvIndex ?? 0) >= 6) {
+    items.push('帽子');
+  }
+  if ((uvIndex ?? 0) >= 3) {
+    items.push('日焼け止め');
+  }
+
   return { outfit, items };
 }
 
@@ -43,7 +56,7 @@ function sensitivityLabel(s) {
   return s === 'cold' ? '寒がり' : s === 'hot' ? '暑がり' : '普通';
 }
 
-function renderKidsClothes(kids, maxTemp) {
+function renderKidsClothes(kids, maxTemp, precipProb, uvIndex) {
   if (!kids || kids.length === 0) {
     return `
       <div class="clothes-card card">
@@ -55,7 +68,7 @@ function renderKidsClothes(kids, maxTemp) {
 
   const cards = kids.map(kid => {
     const name = kid.name || '子ども';
-    const { outfit, items } = getClothingAdvice(maxTemp, kid.sensitivity);
+    const { outfit, items } = getClothingAdvice(maxTemp, kid.sensitivity, precipProb, uvIndex);
     const itemsHtml = items.length > 0
       ? `<div class="kid-items">持ち物：${items.join('、')}</div>`
       : '';
