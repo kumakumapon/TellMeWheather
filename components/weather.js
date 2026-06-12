@@ -129,7 +129,7 @@ function renderWeatherCard(data, cityName, lastUpdated) {
     html: `
       <div class="weather-card card">
         <div class="card-title">
-          🌤 今日・明日の天気 <span class="city-name">${cityName}</span>
+          🌤 今日・明日の天気 <span class="city-name">${escapeHtml(cityName)}</span>
           ${updatedStr}
           <button class="refresh-btn" onclick="window.refreshWeather()" title="天気を更新">🔄</button>
         </div>

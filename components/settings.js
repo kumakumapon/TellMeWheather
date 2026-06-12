@@ -41,7 +41,7 @@ function renderSettingsForm(settings) {
     <div class="kid-setting" data-idx="${i}">
       <div class="kid-setting-title">子ども${i + 1}</div>
       <label>名前（任意）
-        <input type="text" class="kid-name" data-idx="${i}" value="${kid.name || ''}" placeholder="例：たろう" maxlength="20">
+        <input type="text" class="kid-name" data-idx="${i}" value="${escapeHtml(kid.name || '')}" placeholder="例：たろう" maxlength="20">
       </label>
       <label>学年
         <select class="kid-grade" data-idx="${i}">
@@ -63,7 +63,7 @@ function renderSettingsForm(settings) {
       <section class="settings-section">
         <h2>📍 地域設定</h2>
         <label>市区町村名
-          <input type="text" id="setting-city" value="${settings.city || ''}" placeholder="例：東京、大阪市、札幌市" maxlength="50">
+          <input type="text" id="setting-city" value="${escapeHtml(settings.city || '')}" placeholder="例：東京、大阪市、札幌市" maxlength="50">
         </label>
       </section>
 
@@ -112,7 +112,7 @@ function bindSettingsEvents(settings, onSave) {
         <div class="kid-setting" data-idx="${i}">
           <div class="kid-setting-title">子ども${i + 1}</div>
           <label>名前（任意）
-            <input type="text" class="kid-name" data-idx="${i}" value="${kid.name || ''}" placeholder="例：たろう" maxlength="20">
+            <input type="text" class="kid-name" data-idx="${i}" value="${escapeHtml(kid.name || '')}" placeholder="例：たろう" maxlength="20">
           </label>
           <label>学年
             <select class="kid-grade" data-idx="${i}">

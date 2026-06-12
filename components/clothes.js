@@ -67,7 +67,7 @@ function renderKidsClothes(kids, maxTemp, precipProb, uvIndex) {
   }
 
   const cards = kids.map(kid => {
-    const name = kid.name || '子ども';
+    const name = escapeHtml(kid.name || '子ども');
     const { outfit, items } = getClothingAdvice(maxTemp, kid.sensitivity, precipProb, uvIndex);
     const itemsHtml = items.length > 0
       ? `<div class="kid-items">持ち物：${items.join('、')}</div>`
