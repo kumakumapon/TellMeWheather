@@ -651,3 +651,103 @@ body {
     border-color: var(--color-border);
   }
 }
+
+/* ===== HOURLY FORECAST ===== */
+.hourly-card .hourly-summary {
+  font-size: 0.92rem;
+  color: var(--color-text);
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: var(--color-primary-light);
+  border-radius: 8px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.hourly-slots {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 4px;
+}
+
+.hourly-slot {
+  flex: 1;
+  min-width: 56px;
+  text-align: center;
+  padding: 8px 4px;
+  background: var(--color-primary-light);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.hourly-slot-name {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--color-primary-dark);
+}
+
+.hourly-slot-emoji {
+  font-size: 1.2rem;
+}
+
+.hourly-slot-temp {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.hourly-slot-rain {
+  font-size: 0.68rem;
+  color: var(--color-text-light);
+}
+
+/* ===== RAIN TIMELINE ===== */
+.rain-timeline-summary {
+  font-size: 0.88rem;
+  color: var(--color-text);
+  margin-bottom: 10px;
+  font-weight: 500;
+}
+
+.rain-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 60px;
+  padding: 0 4px;
+  margin-bottom: 4px;
+}
+
+.rain-bar {
+  flex: 1;
+  border-radius: 3px 3px 0 0;
+  min-height: 2px;
+  transition: height 0.3s;
+}
+
+.rain-labels {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 4px;
+  font-size: 0.65rem;
+  color: var(--color-text-light);
+}
+
+/* ===== KID NOTES ===== */
+.kid-notes {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.kid-note {
+  font-size: 0.82rem;
+  color: var(--color-caution);
+  font-weight: 500;
+}

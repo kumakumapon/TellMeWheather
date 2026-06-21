@@ -15,6 +15,7 @@ function escapeHtml(value) {
 
 let currentSettings = null;
 let currentView = 'dashboard'; // 'dashboard' | 'settings'
+let lastRefreshTime = Date.now();
 
 function showView(view) {
   currentView = view;
@@ -111,15 +112,35 @@ async function loadDashboard(settings) {
 
   console.log(`Weather data for tomorrow (${daily.time[tomorrowIdx]}): code=${daily.weather_code[tomorrowIdx]}, temp=${maxTemp}°C, precip=${precip}mm, precipProb=${precipProb}%`);
 
+  let hourlyTemps = null;
+  if (weatherData.hourly && weatherData.hourly.time) {
+    const tomorrowDate = daily.time[tomorrowIdx];
+    const morningHours = weatherData.hourly.time
+      .map((t, i) => ({ t, i }))
+      .filter(({ t }) => t.startsWith(tomorrowDate) && parseInt(t.split('T')[1]) >= 7 && parseInt(t.split('T')[1]) <= 9);
+    const afternoonHours = weatherData.hourly.time
+      .map((t, i) => ({ t, i }))
+      .filter(({ t }) => t.startsWith(tomorrowDate) && parseInt(t.split('T')[1]) >= 12 && parseInt(t.split('T')[1]) <= 14);
+
+    if (morningHours.length > 0 && afternoonHours.length > 0) {
+      const avgMorning = morningHours.reduce((s, h) => s + weatherData.hourly.temperature_2m[h.i], 0) / morningHours.length;
+      const avgAfternoon = afternoonHours.reduce((s, h) => s + weatherData.hourly.temperature_2m[h.i], 0) / afternoonHours.length;
+      hourlyTemps = { morning: Math.round(avgMorning), afternoon: Math.round(avgAfternoon) };
+    }
+  }
+
   const quickSummaryHtml = renderQuickSummary(weatherData, settings);
   const { html: weatherHtml } = renderWeatherCard(weatherData, cityName, fetchedAt);
+  const hourlyHtml = renderHourlyForecast(weatherData);
+  const rainTimelineHtml = renderRainTimeline(weatherData);
   const laundryHtml = renderLaundryAdvice(precip, precipProb, wind, settings);
-  const clothesHtml = renderKidsClothes(settings.kids, maxTemp, precipProb, uvIndex);
+  const clothesHtml = renderKidsClothes(settings.kids, maxTemp, precipProb, uvIndex, hourlyTemps);
   const weekHtml = renderWeekForecast(weatherData);
 
   document.getElementById('dashboard-content').innerHTML =
-    quickSummaryHtml + weatherHtml + laundryHtml + clothesHtml + weekHtml;
+    quickSummaryHtml + weatherHtml + hourlyHtml + rainTimelineHtml + laundryHtml + clothesHtml + weekHtml;
 
+  lastRefreshTime = Date.now();
   showLoading(false);
 }
 
@@ -223,4 +244,20 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initial load
   showView('dashboard');
   loadDashboard(currentSettings);
+
+  // Service Worker registration
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  }
+});
+
+// Auto-refresh when tab becomes visible after 30+ minutes
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    const elapsed = Date.now() - lastRefreshTime;
+    if (elapsed >= 30 * 60 * 1000 && currentSettings) {
+      lastRefreshTime = Date.now();
+      loadDashboard(currentSettings);
+    }
+  }
 });

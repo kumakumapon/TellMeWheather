@@ -1,0 +1,17 @@
+{
+  "name": "TellMeWeather",
+  "short_name": "天気チェック",
+  "description": "明日の天気から洗濯・服装をアドバイス",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f0f7ff",
+  "theme_color": "#4a90d9",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☀️</text></svg>",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
