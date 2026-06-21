@@ -65,6 +65,7 @@ function renderSettingsForm(settings) {
         <label>市区町村名
           <input type="text" id="setting-city" value="${escapeHtml(settings.city || '')}" placeholder="例：東京、大阪市、札幌市" maxlength="50">
         </label>
+        <button type="button" id="gps-btn" class="btn-gps">📍 現在地を取得</button>
       </section>
 
       <section class="settings-section">
@@ -133,6 +134,56 @@ function bindSettingsEvents(settings, onSave) {
 
   bindKidInputEvents(settings);
 
+  document.getElementById('gps-btn').addEventListener('click', () => {
+    const btn = document.getElementById('gps-btn');
+    if (!navigator.geolocation) {
+      alert('このブラウザはGeolocationに対応していません。');
+      return;
+    }
+    btn.disabled = true;
+    btn.textContent = '取得中...';
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude: lat, longitude: lon } = pos.coords;
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=ja`
+          );
+          if (!res.ok) throw new Error('Nominatim response error');
+          const data = await res.json();
+          const addr = data.address || {};
+          const cityName = addr.city || addr.town || addr.village || addr.county || addr.state || '';
+          if (cityName) {
+            document.getElementById('setting-city').value = cityName;
+          }
+          settings.lat = lat;
+          settings.lon = lon;
+        } catch (e) {
+          console.warn('逆ジオコーディングに失敗しました', e);
+          alert('地名の取得に失敗しました。手動で入力してください。');
+        } finally {
+          btn.disabled = false;
+          btn.textContent = '📍 現在地を取得';
+        }
+      },
+      (err) => {
+        btn.disabled = false;
+        btn.textContent = '📍 現在地を取得';
+        if (err.code === err.PERMISSION_DENIED) {
+          alert('位置情報の取得が拒否されました。ブラウザの設定をご確認ください。');
+        } else if (err.code === err.POSITION_UNAVAILABLE) {
+          alert('位置情報を取得できませんでした。');
+        } else if (err.code === err.TIMEOUT) {
+          alert('位置情報の取得がタイムアウトしました。');
+        } else {
+          alert('位置情報の取得に失敗しました。');
+        }
+      },
+      { timeout: 10000 }
+    );
+  });
+
   document.getElementById('save-settings-btn').addEventListener('click', () => {
     const city = document.getElementById('setting-city').value.trim();
     const pollen = document.getElementById('setting-pollen').checked;
@@ -143,9 +194,12 @@ function bindSettingsEvents(settings, onSave) {
       return;
     }
 
+    // Clear GPS coordinates if the city was changed manually after GPS lookup
+    if (city !== settings.city) {
+      settings.lat = null;
+      settings.lon = null;
+    }
     settings.city = city;
-    settings.lat = null;
-    settings.lon = null;
     settings.considerPollen = pollen;
     settings.considerWind = wind;
 
