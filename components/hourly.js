@@ -1,0 +1,156 @@
+function renderHourlyForecast(data) {
+  if (!data.hourly || !data.hourly.time) return '';
+
+  const tomorrowDate = data.daily.time[1];
+
+  const TIME_SLOTS = [
+    { name: '早朝', from: 5, to: 7 },
+    { name: '朝',   from: 7, to: 10 },
+    { name: '昼前', from: 10, to: 12 },
+    { name: '昼過ぎ', from: 12, to: 15 },
+    { name: '夕方', from: 15, to: 18 },
+    { name: '夜',   from: 18, to: 21 },
+  ];
+
+  const hourly = data.hourly;
+
+  const slots = TIME_SLOTS.map(slot => {
+    const indices = hourly.time
+      .map((t, i) => ({ t, i }))
+      .filter(({ t }) => {
+        if (!t.startsWith(tomorrowDate)) return false;
+        const h = parseInt(t.split('T')[1]);
+        return h >= slot.from && h < slot.to;
+      });
+
+    if (indices.length === 0) return null;
+
+    const avgTemp = Math.round(
+      indices.reduce((s, { i }) => s + hourly.temperature_2m[i], 0) / indices.length
+    );
+    const maxPrecipProb = Math.max(...indices.map(({ i }) => hourly.precipitation_probability[i] ?? 0));
+
+    const codes = indices.map(({ i }) => hourly.weather_code[i]);
+    const codeFreq = {};
+    codes.forEach(c => { codeFreq[c] = (codeFreq[c] || 0) + 1; });
+    const worstCode = codes.reduce((a, b) => b > a ? b : a, codes[0]);
+    const info = getWeatherInfo(worstCode);
+
+    return { name: slot.name, avgTemp, maxPrecipProb, info };
+  }).filter(Boolean);
+
+  function buildSummary(slots) {
+    if (slots.length === 0) return '';
+
+    const labelOf = slot => slot.info.label;
+    const isRainy = code => {
+      const label = code.info.label;
+      return label.includes('雨') || label.includes('雷') || label.includes('霧雨');
+    };
+    const isCloudy = slot => slot.info.label.includes('曇');
+    const isSunny = slot => slot.info.label.includes('晴') || slot.info.label === '快晴';
+
+    const morning = slots.find(s => s.name === '朝');
+    const afternoon = slots.find(s => s.name === '昼過ぎ');
+    const evening = slots.find(s => s.name === '夕方');
+
+    const parts = [];
+
+    if (morning && afternoon) {
+      if (!isRainy(morning) && isRainy(afternoon)) {
+        parts.push('昼から雨');
+      } else if (isRainy(morning) && !isRainy(afternoon)) {
+        parts.push('午前中は雨、昼から回復');
+      } else if (isRainy(morning) && isRainy(afternoon)) {
+        if (evening && !isRainy(evening)) {
+          parts.push('雨は夕方までに止む見込み');
+        } else {
+          parts.push('一日中雨の見込み');
+        }
+      } else if (isSunny(morning) && isCloudy(afternoon)) {
+        parts.push('朝は晴れ、午後から曇り');
+      } else if (isCloudy(morning) && isSunny(afternoon)) {
+        parts.push('朝は曇り、午後から晴れ');
+      } else if (isSunny(morning) && isSunny(afternoon)) {
+        parts.push('終日晴れの見込み');
+      } else {
+        parts.push('おおむね' + labelOf(morning));
+      }
+    } else if (slots.length > 0) {
+      parts.push('おおむね' + labelOf(slots[0]));
+    }
+
+    if (evening && isRainy(evening) && parts.length > 0 && !parts[0].includes('雨')) {
+      parts.push('夕方から雨');
+    }
+
+    return parts.join('、') + 'でしょう';
+  }
+
+  const summary = buildSummary(slots);
+
+  const slotsHtml = slots.map(slot => `
+    <div class="hourly-slot">
+      <div class="hourly-slot-name">${slot.name}</div>
+      <div class="hourly-slot-emoji">${slot.info.emoji}</div>
+      <div class="hourly-slot-temp">${slot.avgTemp}℃</div>
+      <div class="hourly-slot-rain">☔${slot.maxPrecipProb}%</div>
+    </div>
+  `).join('');
+
+  return `
+    <div class="hourly-card card">
+      <div class="card-title">⏰ 明日の時間帯別予報</div>
+      <div class="hourly-summary">${escapeHtml(summary)}</div>
+      <div class="hourly-slots">${slotsHtml}</div>
+    </div>
+  `;
+}
+
+function renderRainTimeline(data) {
+  if (!data.hourly || !data.hourly.time) return '';
+
+  const tomorrowDate = data.daily.time[1];
+  const hourly = data.hourly;
+
+  const hours = [];
+  for (let h = 6; h <= 21; h++) {
+    const timeStr = `${tomorrowDate}T${String(h).padStart(2, '0')}:00`;
+    const idx = hourly.time.indexOf(timeStr);
+    const prob = idx >= 0 ? (hourly.precipitation_probability[idx] ?? 0) : 0;
+    hours.push({ h, prob });
+  }
+
+  function barColor(prob) {
+    if (prob >= 80) return '#1565c0';
+    if (prob >= 60) return '#42a5f5';
+    if (prob >= 30) return '#90caf9';
+    return '#e0e0e0';
+  }
+
+  const barsHtml = hours.map(({ prob }) => {
+    const heightPct = Math.max(prob, 2);
+    return `<div class="rain-bar" style="height:${heightPct}%;background:${barColor(prob)};"></div>`;
+  }).join('');
+
+  const labelHours = [6, 9, 12, 15, 18, 21];
+  const labelsHtml = labelHours.map(h => `<span>${h}</span>`).join('');
+
+  const maxProb = Math.max(...hours.map(h => h.prob));
+  let summaryHtml;
+  if (maxProb >= 30) {
+    const firstRain = hours.find(h => h.prob >= 30);
+    summaryHtml = `🌧 ${firstRain.h}時頃から雨の可能性（降水確率${maxProb}%）`;
+  } else {
+    summaryHtml = '☀️ 明日は雨の心配なし';
+  }
+
+  return `
+    <div class="rain-timeline-card card">
+      <div class="card-title">🌧 降雨タイムライン（明日）</div>
+      <div class="rain-timeline-summary">${escapeHtml(summaryHtml)}</div>
+      <div class="rain-bars">${barsHtml}</div>
+      <div class="rain-labels">${labelsHtml}</div>
+    </div>
+  `;
+}

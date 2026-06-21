@@ -67,21 +67,17 @@ function getUvLevel(uv) {
 }
 
 async function fetchWeather(lat, lon) {
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,uv_index_max&timezone=auto&forecast_days=7`;
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,uv_index_max&hourly=temperature_2m,precipitation,precipitation_probability,weather_code,wind_speed_10m&timezone=auto&forecast_days=7`;
   const res = await fetch(url);
   if (!res.ok) throw new Error('天気データ取得失敗');
   const raw = await res.json();
-  
+
   // Validate response
   if (!raw.daily) {
     throw new Error('Invalid API response: missing daily data');
   }
-  
-  console.log('API Response:', raw);
-  console.log('Weather codes:', raw.daily.weather_code);
-  console.log('Timezone:', raw.timezone);
-  
-  return { daily: raw.daily };
+
+  return { daily: raw.daily, hourly: raw.hourly };
 }
 
 function renderWeatherCard(data, cityName, lastUpdated) {

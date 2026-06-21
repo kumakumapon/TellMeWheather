@@ -1,11 +1,9 @@
 // Clothes advice component
 
 // tempSensitivity: 'cold' | 'normal' | 'hot'
-function getClothingAdvice(maxTemp, tempSensitivity, precipProb, uvIndex) {
+function getClothingAdvice(maxTemp, tempSensitivity, precipProb, uvIndex, hourlyTemps) {
   const offset = tempSensitivity === 'cold' ? -2 : tempSensitivity === 'hot' ? +2 : 0;
   const adjusted = maxTemp + offset;
-
-  console.log(`Clothes calc: maxTemp=${maxTemp}°C, sensitivity=${tempSensitivity}, offset=${offset}, adjusted=${adjusted}°C`);
 
   let outfit = '';
   let items = [];
@@ -40,7 +38,22 @@ function getClothingAdvice(maxTemp, tempSensitivity, precipProb, uvIndex) {
     items.push('日焼け止め');
   }
 
-  return { outfit, items };
+  const notes = [];
+  if (hourlyTemps) {
+    const diff = hourlyTemps.afternoon - hourlyTemps.morning;
+    if (diff >= 8) {
+      notes.push('朝と昼の寒暖差が大きいです。脱ぎ着しやすい服装を');
+    } else if (hourlyTemps.morning <= 15 && hourlyTemps.afternoon >= 22) {
+      notes.push('朝は肌寒く昼は暖かくなります。上着を持たせて');
+    }
+    if (hourlyTemps.morning <= 10) {
+      notes.push('朝の登校時は冷え込みます。防寒対策を');
+    }
+    if (hourlyTemps.afternoon >= 30) {
+      notes.push('午後は猛暑です。水筒・帽子を忘れずに');
+    }
+  }
+  return { outfit, items, notes };
 }
 
 function gradeLabel(grade) {
@@ -56,7 +69,7 @@ function sensitivityLabel(s) {
   return s === 'cold' ? '寒がり' : s === 'hot' ? '暑がり' : '普通';
 }
 
-function renderKidsClothes(kids, maxTemp, precipProb, uvIndex) {
+function renderKidsClothes(kids, maxTemp, precipProb, uvIndex, hourlyTemps) {
   if (!kids || kids.length === 0) {
     return `
       <div class="clothes-card card">
@@ -68,9 +81,13 @@ function renderKidsClothes(kids, maxTemp, precipProb, uvIndex) {
 
   const cards = kids.map(kid => {
     const name = escapeHtml(kid.name || '子ども');
-    const { outfit, items } = getClothingAdvice(maxTemp, kid.sensitivity, precipProb, uvIndex);
+    const advice = getClothingAdvice(maxTemp, kid.sensitivity, precipProb, uvIndex, hourlyTemps);
+    const { outfit, items } = advice;
     const itemsHtml = items.length > 0
       ? `<div class="kid-items">持ち物：${items.join('、')}</div>`
+      : '';
+    const notesHtml = (advice.notes && advice.notes.length > 0)
+      ? `<div class="kid-notes">${advice.notes.map(n => `<span class="kid-note">💡 ${n}</span>`).join('')}</div>`
       : '';
     return `
       <div class="kid-card">
@@ -79,6 +96,7 @@ function renderKidsClothes(kids, maxTemp, precipProb, uvIndex) {
         </div>
         <div class="kid-outfit">👕 ${outfit}</div>
         ${itemsHtml}
+        ${notesHtml}
       </div>
     `;
   }).join('');
