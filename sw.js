@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tellmeweather-v1';
+const CACHE_NAME = 'tellmeweather-v2';
 const SHELL_FILES = [
   './',
   './index.html',
@@ -8,7 +8,10 @@ const SHELL_FILES = [
   './components/laundry.js',
   './components/clothes.js',
   './components/hourly.js',
+  './components/heatstroke.js',
   './components/settings.js',
+  './assets/app-background.png',
+  './assets/app-icon.png',
 ];
 
 self.addEventListener('install', (event) => {

@@ -32,6 +32,39 @@ const WMO_CODES = {
   99: { label: '雷雨（大雹）',     emoji: '⛈️' },
 };
 
+const WEATHER_IMAGE_PATHS = {
+  sunny: 'assets/weather/sunny.png',
+  cloudy: 'assets/weather/cloudy.png',
+  rainy: 'assets/weather/rainy.png',
+  snowy: 'assets/weather/snowy.png',
+  storm: 'assets/weather/storm.png',
+};
+
+function getWeatherImage(code) {
+  const codeNum = typeof code === 'string' ? parseInt(code, 10) : code;
+  if ([0, 1].includes(codeNum)) return WEATHER_IMAGE_PATHS.sunny;
+  if ([2, 3, 45, 48].includes(codeNum)) return WEATHER_IMAGE_PATHS.cloudy;
+  if ([71, 73, 75, 77, 85, 86].includes(codeNum)) return WEATHER_IMAGE_PATHS.snowy;
+  if ([95, 96, 99].includes(codeNum)) return WEATHER_IMAGE_PATHS.storm;
+  if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].includes(codeNum)) {
+    return WEATHER_IMAGE_PATHS.rainy;
+  }
+  return null;
+}
+
+function renderWeatherVisual(code, info, sizeClass = '') {
+  const imagePath = getWeatherImage(code);
+  if (!imagePath) return `<span class="weather-emoji ${sizeClass}">${info.emoji}</span>`;
+
+  return `
+    <span class="weather-visual ${sizeClass}" aria-hidden="true">
+      <img src="${imagePath}" alt="" loading="lazy" decoding="async"
+        onerror="this.hidden=true;this.nextElementSibling.hidden=false">
+      <span class="weather-emoji-fallback" hidden>${info.emoji}</span>
+    </span>
+  `;
+}
+
 function getWeatherInfo(code) {
   // Ensure code is a number (in case of string conversion from API or cache)
   const codeNum = typeof code === 'string' ? parseInt(code, 10) : code;
@@ -102,7 +135,7 @@ function renderWeatherCard(data, cityName, lastUpdated) {
       <div class="day-col">
         <div class="day-col-header">${headerLabel} <span class="day-col-date">${dateStr}</span></div>
         <div class="day-col-main">
-          <span class="weather-emoji">${info.emoji}</span>
+          ${renderWeatherVisual(code, info, 'weather-visual-main')}
           <span class="weather-label">${info.label}</span>
         </div>
         <div class="weather-temp">
@@ -156,7 +189,7 @@ function renderWeekForecast(data) {
       <div class="week-col">
         <div class="week-col-date">${dateLabel}</div>
         <div class="week-col-day">${dayLabel}</div>
-        <div class="week-col-emoji">${info.emoji}</div>
+        <div class="week-col-emoji">${renderWeatherVisual(daily.weather_code[i], info, 'weather-visual-week')}</div>
         <div class="week-col-temp"><span class="temp-max">↑${maxT}</span><span class="temp-min">↓${minT}</span></div>
         <div class="week-col-rain">☔${prob}%</div>
         <div class="week-col-laundry ${laundryOk ? 'ok' : 'ng'}">${laundryOk ? '◎' : '✕'}</div>

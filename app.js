@@ -225,7 +225,10 @@ function renderQuickSummary(weatherData, settings) {
       <div class="quick-summary-main">
         <div>
           <div class="quick-kicker">3秒チェック</div>
-          <h2 class="quick-title">明日は${weatherInfo.emoji} ${weatherInfo.label}</h2>
+          <h2 class="quick-title">
+            ${renderWeatherVisual(daily.weather_code[tomorrowIdx], weatherInfo, 'weather-visual-quick')}
+            <span>明日は${weatherInfo.label}</span>
+          </h2>
           <p class="quick-subtitle">${tempLabel}・降水確率${Math.round(precipProb)}%・最大風速${Math.round(wind)}km/h</p>
         </div>
         <button class="quick-refresh" onclick="window.refreshWeather()" type="button">更新</button>

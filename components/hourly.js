@@ -36,7 +36,7 @@ function renderHourlyForecast(data) {
     const worstCode = codes.reduce((a, b) => b > a ? b : a, codes[0]);
     const info = getWeatherInfo(worstCode);
 
-    return { name: slot.name, avgTemp, maxPrecipProb, info };
+    return { name: slot.name, avgTemp, maxPrecipProb, code: worstCode, info };
   }).filter(Boolean);
 
   function buildSummary(slots) {
@@ -92,7 +92,7 @@ function renderHourlyForecast(data) {
   const slotsHtml = slots.map(slot => `
     <div class="hourly-slot">
       <div class="hourly-slot-name">${slot.name}</div>
-      <div class="hourly-slot-emoji">${slot.info.emoji}</div>
+      <div class="hourly-slot-emoji">${renderWeatherVisual(slot.code, slot.info, 'weather-visual-hourly')}</div>
       <div class="hourly-slot-temp">${slot.avgTemp}℃</div>
       <div class="hourly-slot-rain">☔${slot.maxPrecipProb}%</div>
     </div>

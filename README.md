@@ -2,6 +2,8 @@
 
 [![Deploy to GitHub Pages](https://github.com/sj55576/TellMeWheather/actions/workflows/deploy.yml/badge.svg)](https://github.com/sj55576/TellMeWheather/actions/workflows/deploy.yml)
 
+![TellMeWeather - 家族の明日の天気・洗濯・服装をまとめて確認](assets/readme-hero.png)
+
 🔗 **アプリURL**: [https://sj55576.github.io/TellMeWheather/](https://sj55576.github.io/TellMeWheather/)
 
 ---
@@ -98,6 +100,7 @@
 ├── index.html            # メインHTML（ダッシュボード・設定の両ビュー）
 ├── style.css             # スタイル（スマホ最適化、淡いブルー/ホワイト系）
 ├── app.js                # メインコントローラー
+├── assets/               # GPT Image 2 で生成した背景・アイコン・天気画像
 ├── components/
 │   ├── weather.js        # 天気API呼び出し・天気カード表示
 │   ├── laundry.js        # 洗濯アドバイス判定・表示

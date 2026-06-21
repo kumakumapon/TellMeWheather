@@ -33,7 +33,12 @@ html {
 
 body {
   font-family: var(--font-base);
-  background: var(--color-bg);
+  background-color: var(--color-bg);
+  background-image: linear-gradient(rgba(240, 247, 255, 0.82), rgba(240, 247, 255, 0.9)), url('assets/app-background.png');
+  background-position: center top;
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-attachment: fixed;
   color: var(--color-text);
   min-height: 100vh;
   display: flex;
@@ -209,6 +214,49 @@ body {
 .weather-emoji {
   font-size: 2.4rem;
   line-height: 1;
+}
+
+.weather-visual {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  overflow: hidden;
+  border-radius: 18px;
+  line-height: 1;
+}
+
+.weather-visual img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.weather-visual-main {
+  width: 74px;
+  height: 74px;
+  box-shadow: 0 4px 12px rgba(46, 109, 164, 0.16);
+}
+
+.weather-visual-week {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+}
+
+.weather-visual-hourly {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+}
+
+.weather-visual-quick {
+  width: 42px;
+  height: 42px;
+  border-radius: 11px;
+}
+
+.weather-emoji-fallback {
+  font-size: 1.6rem;
 }
 
 .weather-label {
@@ -561,6 +609,10 @@ html.dark-mode {
   --color-primary-light: #1a3150;
 }
 
+html.dark-mode body {
+  background-image: linear-gradient(rgba(26, 35, 50, 0.9), rgba(26, 35, 50, 0.96)), url('assets/app-background.png');
+}
+
 html.dark-mode .app-header {
   background: linear-gradient(135deg, #2e6da4 0%, #1a4a7a 100%);
 }
@@ -593,6 +645,9 @@ html.dark-mode .app-header {
   font-size: 1.25rem;
   line-height: 1.25;
   margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
 }
 
 .quick-subtitle,
