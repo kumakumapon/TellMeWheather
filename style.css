@@ -551,19 +551,18 @@ body {
   .weather-emoji { font-size: 2.8rem; }
 }
 
-@media (prefers-color-scheme: dark) {
-  /* Minimal dark mode support */
-  :root {
-    --color-bg: #1a2332;
-    --color-white: #1e2d3d;
-    --color-text: #e0eaf5;
-    --color-text-light: #8aabcc;
-    --color-border: #2d4a6a;
-    --color-primary-light: #1a3150;
-  }
-  .app-header {
-    background: linear-gradient(135deg, #2e6da4 0%, #1a4a7a 100%);
-  }
+/* Dark mode - applied via .dark-mode class */
+html.dark-mode {
+  --color-bg: #1a2332;
+  --color-white: #1e2d3d;
+  --color-text: #e0eaf5;
+  --color-text-light: #8aabcc;
+  --color-border: #2d4a6a;
+  --color-primary-light: #1a3150;
+}
+
+html.dark-mode .app-header {
+  background: linear-gradient(135deg, #2e6da4 0%, #1a4a7a 100%);
 }
 
 /* ===== QUICK SUMMARY ===== */
@@ -645,11 +644,9 @@ body {
   color: var(--color-primary-dark);
 }
 
-@media (prefers-color-scheme: dark) {
-  .quick-summary {
-    background: linear-gradient(135deg, var(--color-white) 0%, var(--color-primary-light) 100%);
-    border-color: var(--color-border);
-  }
+html.dark-mode .quick-summary {
+  background: linear-gradient(135deg, var(--color-white) 0%, var(--color-primary-light) 100%);
+  border-color: var(--color-border);
 }
 
 /* ===== HOURLY FORECAST ===== */
@@ -750,4 +747,126 @@ body {
   font-size: 0.82rem;
   color: var(--color-caution);
   font-weight: 500;
+}
+
+/* ===== GPS BUTTON ===== */
+.btn-gps {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 8px 14px;
+  background: var(--color-primary-light);
+  color: var(--color-primary-dark);
+  border: 1px solid var(--color-primary);
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-family: var(--font-base);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-gps:hover {
+  background: var(--color-primary);
+  color: var(--color-white);
+}
+
+.btn-gps:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ===== HEATSTROKE ALERT ===== */
+.heatstroke-card {
+  border-left-width: 4px;
+  border-left-style: solid;
+}
+
+.heat-peak {
+  font-size: 0.82rem;
+  color: var(--color-text-light);
+  margin-top: 4px;
+}
+
+/* ===== SKELETON LOADING ===== */
+.skeleton-card {
+  background: var(--color-white);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 10px;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--color-border);
+}
+
+.skeleton-line {
+  height: 14px;
+  background: linear-gradient(90deg, var(--color-border) 25%, var(--color-primary-light) 50%, var(--color-border) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 6px;
+  margin-bottom: 10px;
+}
+
+.skeleton-line:last-child {
+  margin-bottom: 0;
+}
+
+.skeleton-line.short { width: 40%; }
+.skeleton-line.medium { width: 65%; }
+.skeleton-line.long { width: 85%; }
+.skeleton-line.full { width: 100%; }
+
+.skeleton-line.title {
+  height: 20px;
+  width: 50%;
+  margin-bottom: 14px;
+}
+
+.skeleton-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.skeleton-grid-item {
+  background: var(--color-primary-light);
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.skeleton-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(90deg, var(--color-border) 25%, var(--color-primary-light) 50%, var(--color-border) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ===== DARK MODE TOGGLE ===== */
+.theme-toggle {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.3);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 1.1rem;
+  cursor: pointer;
+  line-height: 1;
+  transition: background 0.2s;
+}
+
+.theme-toggle:hover {
+  background: rgba(255,255,255,0.25);
 }

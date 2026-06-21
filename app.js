@@ -32,8 +32,52 @@ function showError(msg) {
 }
 
 function showLoading(show) {
-  document.getElementById('loading').style.display = show ? '' : 'none';
-  document.getElementById('dashboard-content').style.display = show ? 'none' : '';
+  const loadingEl = document.getElementById('loading');
+  const contentEl = document.getElementById('dashboard-content');
+  if (show) {
+    loadingEl.innerHTML = renderSkeletonUI();
+    loadingEl.style.display = '';
+    contentEl.style.display = 'none';
+  } else {
+    loadingEl.style.display = 'none';
+    contentEl.style.display = '';
+  }
+}
+
+function renderSkeletonUI() {
+  return `
+    <div class="skeleton-card">
+      <div class="skeleton-line title"></div>
+      <div class="skeleton-line long"></div>
+      <div class="skeleton-line medium"></div>
+    </div>
+    <div class="skeleton-card">
+      <div class="skeleton-line title"></div>
+      <div class="skeleton-grid">
+        <div class="skeleton-grid-item">
+          <div class="skeleton-circle"></div>
+          <div class="skeleton-line full"></div>
+          <div class="skeleton-line short"></div>
+        </div>
+        <div class="skeleton-grid-item">
+          <div class="skeleton-circle"></div>
+          <div class="skeleton-line full"></div>
+          <div class="skeleton-line short"></div>
+        </div>
+      </div>
+    </div>
+    <div class="skeleton-card">
+      <div class="skeleton-line title"></div>
+      <div class="skeleton-line long"></div>
+      <div class="skeleton-line medium"></div>
+      <div class="skeleton-line short"></div>
+    </div>
+    <div class="skeleton-card">
+      <div class="skeleton-line title"></div>
+      <div class="skeleton-line full"></div>
+      <div class="skeleton-line long"></div>
+    </div>
+  `;
 }
 
 function getCachedWeather() {
@@ -134,11 +178,12 @@ async function loadDashboard(settings) {
   const hourlyHtml = renderHourlyForecast(weatherData);
   const rainTimelineHtml = renderRainTimeline(weatherData);
   const laundryHtml = renderLaundryAdvice(precip, precipProb, wind, settings);
+  const heatstrokeHtml = renderHeatstrokeAlert(weatherData);
   const clothesHtml = renderKidsClothes(settings.kids, maxTemp, precipProb, uvIndex, hourlyTemps);
   const weekHtml = renderWeekForecast(weatherData);
 
   document.getElementById('dashboard-content').innerHTML =
-    quickSummaryHtml + weatherHtml + hourlyHtml + rainTimelineHtml + laundryHtml + clothesHtml + weekHtml;
+    quickSummaryHtml + weatherHtml + hourlyHtml + rainTimelineHtml + laundryHtml + heatstrokeHtml + clothesHtml + weekHtml;
 
   lastRefreshTime = Date.now();
   showLoading(false);
@@ -222,8 +267,40 @@ function renderSettingsView(settings) {
   });
 }
 
+// Theme toggle
+function initTheme() {
+  const saved = localStorage.getItem('tellmeweather_theme');
+  if (saved === 'dark') {
+    document.documentElement.classList.add('dark-mode');
+  } else if (saved === 'light') {
+    document.documentElement.classList.remove('dark-mode');
+  } else {
+    // Follow system preference
+    if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      document.documentElement.classList.add('dark-mode');
+    }
+  }
+  updateThemeIcon();
+}
+
+function updateThemeIcon() {
+  const btn = document.getElementById('theme-toggle');
+  if (btn) {
+    const isDark = document.documentElement.classList.contains('dark-mode');
+    btn.textContent = isDark ? '☀️' : '🌙';
+  }
+}
+
+function toggleTheme() {
+  const isDark = document.documentElement.classList.toggle('dark-mode');
+  localStorage.setItem('tellmeweather_theme', isDark ? 'dark' : 'light');
+  updateThemeIcon();
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   currentSettings = loadSettings();
+  initTheme();
+  document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
 
   // Global refresh handler (called from inline onclick in weather card)
   window.refreshWeather = () => loadDashboard(currentSettings);
