@@ -1,10 +1,10 @@
 # ☀️ TellMeWeather — 明日の洗濯・服装チェック
 
-[![Deploy to GitHub Pages](https://github.com/sj55576/TellMeWheather/actions/workflows/deploy.yml/badge.svg)](https://github.com/sj55576/TellMeWheather/actions/workflows/deploy.yml)
+[![Deploy to GitHub Pages](https://github.com/kumakumapon/TellMeWheather/actions/workflows/deploy.yml/badge.svg)](https://github.com/kumakumapon/TellMeWheather/actions/workflows/deploy.yml)
 
 ![TellMeWeather - 家族の明日の天気・洗濯・服装をまとめて確認](assets/readme-hero.png)
 
-🔗 **アプリURL**: [https://sj55576.github.io/TellMeWheather/](https://sj55576.github.io/TellMeWheather/)
+🔗 **アプリURL**: [https://kumakumapon.github.io/TellMeWheather/](https://kumakumapon.github.io/TellMeWheather/)
 
 ---
 
@@ -28,7 +28,7 @@
 
 ### 1. アプリを開く
 
-[https://sj55576.github.io/TellMeWheather/](https://sj55576.github.io/TellMeWheather/) にアクセスします。
+[https://kumakumapon.github.io/TellMeWheather/](https://kumakumapon.github.io/TellMeWheather/) にアクセスします。
 
 ### 2. 設定する（初回のみ）
 
