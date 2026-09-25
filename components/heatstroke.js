@@ -10,10 +10,18 @@ function estimateWbgt(tempC, humidityPct) {
   return 0.567 * tempC + 0.393 * vaporPressure + 3.94;
 }
 
-function getHeatLevel(maxTemp, humidity) {
+// Kids exercising outdoors (club activities, PE) generate more body heat and
+// sweat more, so their effective heat stress is higher than the ambient
+// reading suggests. Nudging the threshold comparison by a couple of degrees
+// makes the alert trigger earlier/more severely on those days.
+const ACTIVITY_DAY_BOOST = 2;
+
+function getHeatLevel(maxTemp, humidity, isActivityDay) {
+  const boost = isActivityDay ? ACTIVITY_DAY_BOOST : 0;
+
   if (humidity != null) {
     // WBGT-based thresholds (Japan's Ministry of Environment 暑さ指数 guide).
-    const wbgt = estimateWbgt(maxTemp, humidity);
+    const wbgt = estimateWbgt(maxTemp, humidity) + boost;
     if (wbgt >= 31) return { level: 'danger', label: '危険', color: '#b71c1c', icon: '🚨', message: '外での活動は避けてください。室内でも熱中症に注意。' };
     if (wbgt >= 28) return { level: 'severe', label: '厳重警戒', color: '#e65100', icon: '⚠️', message: '激しい運動は避け、こまめに水分補給を。' };
     if (wbgt >= 25) return { level: 'warning', label: '警戒', color: '#f39c12', icon: '💧', message: '運動時は休憩と水分補給を忘れずに。' };
@@ -22,14 +30,15 @@ function getHeatLevel(maxTemp, humidity) {
   }
 
   // No humidity data available — fall back to air-temperature-only thresholds.
-  if (maxTemp >= 35) return { level: 'danger', label: '危険', color: '#b71c1c', icon: '🚨', message: '外での活動は避けてください。室内でも熱中症に注意。' };
-  if (maxTemp >= 31) return { level: 'severe', label: '厳重警戒', color: '#e65100', icon: '⚠️', message: '激しい運動は避け、こまめに水分補給を。' };
-  if (maxTemp >= 28) return { level: 'warning', label: '警戒', color: '#f39c12', icon: '💧', message: '運動時は休憩と水分補給を忘れずに。' };
-  if (maxTemp >= 25) return { level: 'caution', label: '注意', color: '#27ae60', icon: '💡', message: '水筒を持参しましょう。' };
+  const effTemp = maxTemp + boost;
+  if (effTemp >= 35) return { level: 'danger', label: '危険', color: '#b71c1c', icon: '🚨', message: '外での活動は避けてください。室内でも熱中症に注意。' };
+  if (effTemp >= 31) return { level: 'severe', label: '厳重警戒', color: '#e65100', icon: '⚠️', message: '激しい運動は避け、こまめに水分補給を。' };
+  if (effTemp >= 28) return { level: 'warning', label: '警戒', color: '#f39c12', icon: '💧', message: '運動時は休憩と水分補給を忘れずに。' };
+  if (effTemp >= 25) return { level: 'caution', label: '注意', color: '#27ae60', icon: '💡', message: '水筒を持参しましょう。' };
   return null; // No alert needed below 25°C
 }
 
-function renderHeatstrokeAlert(weatherData) {
+function renderHeatstrokeAlert(weatherData, isActivityDay) {
   const daily = weatherData.daily;
   const tomorrowIdx = 1;
   const maxTemp = daily.temperature_2m_max[tomorrowIdx];
@@ -60,7 +69,7 @@ function renderHeatstrokeAlert(weatherData) {
     }
   }
 
-  const heat = getHeatLevel(maxTemp, avgHumidity);
+  const heat = getHeatLevel(maxTemp, avgHumidity, isActivityDay);
   if (!heat) return '';
 
   const tips = [];

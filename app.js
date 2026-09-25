@@ -73,17 +73,17 @@ function renderSkeletonUI() {
   `;
 }
 
-function getCachedWeather() {
+function getCachedWeather(key) {
   try {
-    const raw = localStorage.getItem(CACHE_KEY);
+    const raw = localStorage.getItem(key);
     if (raw) return JSON.parse(raw);
   } catch (e) {}
   return null;
 }
 
-function setCachedWeather(data) {
+function setCachedWeather(key, data) {
   try {
-    localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+    localStorage.setItem(key, JSON.stringify(data));
   } catch (e) {}
 }
 
@@ -91,21 +91,23 @@ async function loadDashboard(settings) {
   showLoading(true);
   showError('');
   let weatherData = null;
-  let cityName = settings.city;
+  const location = getActiveLocation(settings);
+  let cityName = location.city;
+  const cacheKey = `${CACHE_KEY}:${settings.activeLocationIndex ?? 0}`;
 
   try {
     try {
-      let lat = settings.lat;
-      let lon = settings.lon;
+      let lat = location.lat;
+      let lon = location.lon;
 
       if (!lat || !lon) {
-        const geo = await geocodeCity(settings.city);
+        const geo = await geocodeCity(location.city);
         lat = geo.lat;
         lon = geo.lon;
         cityName = geo.name;
         // Cache coords for faster next load
-        settings.lat = lat;
-        settings.lon = lon;
+        location.lat = lat;
+        location.lon = lon;
         saveSettings(settings);
       }
 
@@ -117,10 +119,10 @@ async function loadDashboard(settings) {
         throw new Error('Invalid API response: missing or incomplete daily data');
       }
 
-      setCachedWeather({ data: weatherData, cityName, ts: Date.now() });
+      setCachedWeather(cacheKey, { data: weatherData, cityName, ts: Date.now() });
     } catch (err) {
       console.error('Weather fetch error:', err);
-      const cached = getCachedWeather();
+      const cached = getCachedWeather(cacheKey);
       if (cached) {
         weatherData = cached.data;
         cityName = cached.cityName;
@@ -164,17 +166,27 @@ async function loadDashboard(settings) {
       }
     }
 
-    const quickSummaryHtml = renderQuickSummary(weatherData, settings);
-    const { html: weatherHtml } = renderWeatherCard(weatherData, cityName, fetchedAt);
-    const hourlyHtml = renderHourlyForecast(weatherData);
-    const rainTimelineHtml = renderRainTimeline(weatherData);
-    const tomorrowMonth = parseLocalDate(daily.time[tomorrowIdx]).getMonth() + 1;
+    const tomorrowDate = parseLocalDate(daily.time[tomorrowIdx]);
+    const isActivityDay = !!(settings.activityDays && settings.activityDays[tomorrowDate.getDay()]);
+    // Base clothing on the actual morning (7-9am) commute temperature rather
+    // than the day's max, which can be much warmer than what kids leave the
+    // house in. Falls back to max temp when hourly data isn't available.
+    const clothesBaseTemp = hourlyTemps ? hourlyTemps.morning : maxTemp;
+    const weatherInfo = getWeatherInfo(daily.weather_code[tomorrowIdx]);
+    const tomorrowMonth = tomorrowDate.getMonth() + 1;
     const pickupAdvice = weatherData.hourly
       ? getLaundryPickupAdvice(buildHourlyRainProbabilities(weatherData))
       : null;
+    const laundryAdvice = getLaundryAdvice(precip, precipProb, wind, settings, tomorrowMonth, pickupAdvice);
+    const shareText = buildShareText(weatherInfo, laundryAdvice, settings.kids, clothesBaseTemp, precipProb, uvIndex, hourlyTemps);
+
+    const quickSummaryHtml = renderQuickSummary(weatherData, settings, shareText, isActivityDay);
+    const { html: weatherHtml } = renderWeatherCard(weatherData, cityName, fetchedAt);
+    const hourlyHtml = renderHourlyForecast(weatherData);
+    const rainTimelineHtml = renderRainTimeline(weatherData);
     const laundryHtml = renderLaundryAdvice(precip, precipProb, wind, settings, tomorrowMonth, pickupAdvice);
-    const heatstrokeHtml = renderHeatstrokeAlert(weatherData);
-    const clothesHtml = renderKidsClothes(settings.kids, maxTemp, precipProb, uvIndex, hourlyTemps);
+    const heatstrokeHtml = renderHeatstrokeAlert(weatherData, isActivityDay);
+    const clothesHtml = renderKidsClothes(settings.kids, clothesBaseTemp, precipProb, uvIndex, hourlyTemps);
     const weekHtml = renderWeekForecast(weatherData, settings);
 
     document.getElementById('dashboard-content').innerHTML =
@@ -187,7 +199,7 @@ async function loadDashboard(settings) {
 }
 
 
-function renderQuickSummary(weatherData, settings) {
+function renderQuickSummary(weatherData, settings, shareText, isActivityDay) {
   const daily = weatherData.daily;
   const tomorrowIdx = 1;
   const maxTemp = daily.temperature_2m_max[tomorrowIdx];
@@ -218,8 +230,26 @@ function renderQuickSummary(weatherData, settings) {
     ? `<p class="quick-note">次の洗濯チャンス：<strong>${bestLaundryDay}</strong></p>`
     : '<p class="quick-note">今週は雨・風に注意。部屋干しも準備しておくと安心です。</p>';
 
+  const locations = settings.locations || [];
+  const locationSwitcherHtml = locations.length > 1
+    ? `
+      <div class="location-switcher">
+        ${locations.map((loc, i) => `
+          <button type="button" class="location-pill ${i === (settings.activeLocationIndex ?? 0) ? 'active' : ''}" data-action="switch-location" data-idx="${i}">
+            ${escapeHtml(loc.label || `地点${i + 1}`)}
+          </button>
+        `).join('')}
+      </div>
+    `
+    : '';
+
+  const activityNoteHtml = isActivityDay
+    ? '<p class="quick-note activity-note">🏃 部活・習い事の日：熱中症・雨にいつもより注意してください。</p>'
+    : '';
+
   return `
     <section class="quick-summary card" aria-label="明日の結論">
+      ${locationSwitcherHtml}
       <div class="quick-summary-main">
         <div>
           <div class="quick-kicker">3秒チェック</div>
@@ -229,14 +259,27 @@ function renderQuickSummary(weatherData, settings) {
           </h2>
           <p class="quick-subtitle">${tempLabel}・降水確率${Math.round(precipProb)}%・最大風速${Math.round(wind)}km/h</p>
         </div>
-        <button class="quick-refresh" data-action="refresh" type="button">更新</button>
+        <div class="quick-actions">
+          <button class="quick-refresh" data-action="refresh" type="button">更新</button>
+          <button class="quick-share" data-action="share" data-share-text="${escapeHtml(shareText || '')}" type="button">📤 共有</button>
+        </div>
       </div>
       <div class="quick-chips">
         ${chips.map(chip => `<span class="quick-chip ${chip.cls}">${chip.icon} ${escapeHtml(chip.label)}</span>`).join('')}
       </div>
+      ${activityNoteHtml}
       ${bestDayHtml}
     </section>
   `;
+}
+
+function buildShareText(weatherInfo, laundryAdvice, kids, clothesBaseTemp, precipProb, uvIndex, hourlyTemps) {
+  const kidsParts = (kids || []).map(kid => {
+    const advice = getClothingAdvice(clothesBaseTemp, kid.sensitivity, precipProb, uvIndex, hourlyTemps);
+    return `${kid.name || '子ども'}は${advice.outfit}`;
+  });
+  const parts = [`明日は${weatherInfo.label}`, laundryAdvice.label, ...kidsParts];
+  return parts.join('、');
 }
 
 function findBestLaundryDay(daily, settings) {
@@ -306,11 +349,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
   window.refreshWeather = () => loadDashboard(currentSettings);
 
-  // Delegated click handler for the refresh buttons rendered inside
-  // dashboard-content (avoids inline onclick= attributes, which CSP blocks).
+  // Delegated click handler for buttons rendered inside dashboard-content
+  // (avoids inline onclick= attributes, which CSP blocks).
   document.getElementById('dashboard-content').addEventListener('click', (e) => {
     if (e.target.closest('[data-action="refresh"]')) {
       window.refreshWeather();
+      return;
+    }
+
+    const switchBtn = e.target.closest('[data-action="switch-location"]');
+    if (switchBtn) {
+      const idx = parseInt(switchBtn.dataset.idx, 10);
+      if (idx !== currentSettings.activeLocationIndex) {
+        currentSettings.activeLocationIndex = idx;
+        saveSettings(currentSettings);
+        loadDashboard(currentSettings);
+      }
+      return;
+    }
+
+    const shareBtn = e.target.closest('[data-action="share"]');
+    if (shareBtn) {
+      const text = shareBtn.dataset.shareText;
+      if (navigator.share) {
+        navigator.share({ text }).catch(() => {});
+      } else if (navigator.clipboard) {
+        navigator.clipboard.writeText(text)
+          .then(() => alert('クリップボードにコピーしました'))
+          .catch(() => alert(text));
+      } else {
+        alert(text);
+      }
     }
   });
 
