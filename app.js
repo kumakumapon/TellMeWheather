@@ -101,92 +101,94 @@ async function loadDashboard(settings) {
   let cityName = settings.city;
 
   try {
-    let lat = settings.lat;
-    let lon = settings.lon;
+    try {
+      let lat = settings.lat;
+      let lon = settings.lon;
 
-    if (!lat || !lon) {
-      const geo = await geocodeCity(settings.city);
-      lat = geo.lat;
-      lon = geo.lon;
-      cityName = geo.name;
-      // Cache coords for faster next load
-      settings.lat = lat;
-      settings.lon = lon;
-      saveSettings(settings);
-    }
+      if (!lat || !lon) {
+        const geo = await geocodeCity(settings.city);
+        lat = geo.lat;
+        lon = geo.lon;
+        cityName = geo.name;
+        // Cache coords for faster next load
+        settings.lat = lat;
+        settings.lon = lon;
+        saveSettings(settings);
+      }
 
-    weatherData = await fetchWeather(lat, lon);
-    setCachedWeather({ data: weatherData, cityName, ts: Date.now() });
-  } catch (err) {
-    console.error('Weather fetch error:', err);
-    const cached = getCachedWeather();
-    if (cached) {
-      weatherData = cached.data;
-      cityName = cached.cityName;
-      const age = Math.round((Date.now() - cached.ts) / 60000);
-      // Only use cache if less than 24 hours old
-      if (age < 1440) {
-        showError(`⚠️ データ取得に失敗しました。前回のデータ（${age}分前）を表示しています。`);
+      weatherData = await fetchWeather(lat, lon);
+
+      // Validate API response structure before trusting/caching it
+      const daily = weatherData.daily;
+      if (!daily || !Array.isArray(daily.weather_code) || daily.weather_code.length < 2) {
+        throw new Error('Invalid API response: missing or incomplete daily data');
+      }
+
+      setCachedWeather({ data: weatherData, cityName, ts: Date.now() });
+    } catch (err) {
+      console.error('Weather fetch error:', err);
+      const cached = getCachedWeather();
+      if (cached) {
+        weatherData = cached.data;
+        cityName = cached.cityName;
+        const age = Math.round((Date.now() - cached.ts) / 60000);
+        // Only use cache if less than 24 hours old
+        if (age < 1440) {
+          showError(`⚠️ データ取得に失敗しました。前回のデータ（${age}分前）を表示しています。`);
+        } else {
+          showError(`⚠️ キャッシュが古すぎます（${age}分前）。新しいデータ取得に失敗しました: ${err.message}`);
+          return;
+        }
       } else {
-        showError(`⚠️ キャッシュが古すぎます（${age}分前）。新しいデータ取得に失敗しました: ${err.message}`);
-        showLoading(false);
+        showError(`⚠️ データ取得に失敗しました: ${err.message}`);
         return;
       }
-    } else {
-      showError(`⚠️ データ取得に失敗しました: ${err.message}`);
-      showLoading(false);
-      return;
     }
-  }
 
-  const daily = weatherData.daily;
-  
-  // Validate API response structure
-  if (!daily || !Array.isArray(daily.weather_code) || daily.weather_code.length < 2) {
-    throw new Error('Invalid API response: missing or incomplete daily data');
-  }
-  
-  const tomorrowIdx = 1;
-  const precip = daily.precipitation_sum[tomorrowIdx] ?? 0;
-  const precipProb = daily.precipitation_probability_max[tomorrowIdx] ?? 0;
-  const wind = daily.wind_speed_10m_max[tomorrowIdx] ?? 0;
-  const maxTemp = daily.temperature_2m_max[tomorrowIdx];
-  const uvIndex = daily.uv_index_max ? (daily.uv_index_max[tomorrowIdx] ?? 0) : 0;
-  const fetchedAt = Date.now();
+    const daily = weatherData.daily;
+    const tomorrowIdx = 1;
+    const precip = daily.precipitation_sum[tomorrowIdx] ?? 0;
+    const precipProb = daily.precipitation_probability_max[tomorrowIdx] ?? 0;
+    const wind = daily.wind_speed_10m_max[tomorrowIdx] ?? 0;
+    const maxTemp = daily.temperature_2m_max[tomorrowIdx];
+    const uvIndex = daily.uv_index_max ? (daily.uv_index_max[tomorrowIdx] ?? 0) : 0;
+    const fetchedAt = Date.now();
 
-  console.log(`Weather data for tomorrow (${daily.time[tomorrowIdx]}): code=${daily.weather_code[tomorrowIdx]}, temp=${maxTemp}°C, precip=${precip}mm, precipProb=${precipProb}%`);
+    console.log(`Weather data for tomorrow (${daily.time[tomorrowIdx]}): code=${daily.weather_code[tomorrowIdx]}, temp=${maxTemp}°C, precip=${precip}mm, precipProb=${precipProb}%`);
 
-  let hourlyTemps = null;
-  if (weatherData.hourly && weatherData.hourly.time) {
-    const tomorrowDate = daily.time[tomorrowIdx];
-    const morningHours = weatherData.hourly.time
-      .map((t, i) => ({ t, i }))
-      .filter(({ t }) => t.startsWith(tomorrowDate) && parseInt(t.split('T')[1]) >= 7 && parseInt(t.split('T')[1]) <= 9);
-    const afternoonHours = weatherData.hourly.time
-      .map((t, i) => ({ t, i }))
-      .filter(({ t }) => t.startsWith(tomorrowDate) && parseInt(t.split('T')[1]) >= 12 && parseInt(t.split('T')[1]) <= 14);
+    let hourlyTemps = null;
+    if (weatherData.hourly && weatherData.hourly.time) {
+      const tomorrowDate = daily.time[tomorrowIdx];
+      const morningHours = weatherData.hourly.time
+        .map((t, i) => ({ t, i }))
+        .filter(({ t }) => t.startsWith(tomorrowDate) && parseInt(t.split('T')[1]) >= 7 && parseInt(t.split('T')[1]) <= 9);
+      const afternoonHours = weatherData.hourly.time
+        .map((t, i) => ({ t, i }))
+        .filter(({ t }) => t.startsWith(tomorrowDate) && parseInt(t.split('T')[1]) >= 12 && parseInt(t.split('T')[1]) <= 14);
 
-    if (morningHours.length > 0 && afternoonHours.length > 0) {
-      const avgMorning = morningHours.reduce((s, h) => s + weatherData.hourly.temperature_2m[h.i], 0) / morningHours.length;
-      const avgAfternoon = afternoonHours.reduce((s, h) => s + weatherData.hourly.temperature_2m[h.i], 0) / afternoonHours.length;
-      hourlyTemps = { morning: Math.round(avgMorning), afternoon: Math.round(avgAfternoon) };
+      if (morningHours.length > 0 && afternoonHours.length > 0) {
+        const avgMorning = morningHours.reduce((s, h) => s + weatherData.hourly.temperature_2m[h.i], 0) / morningHours.length;
+        const avgAfternoon = afternoonHours.reduce((s, h) => s + weatherData.hourly.temperature_2m[h.i], 0) / afternoonHours.length;
+        hourlyTemps = { morning: Math.round(avgMorning), afternoon: Math.round(avgAfternoon) };
+      }
     }
+
+    const quickSummaryHtml = renderQuickSummary(weatherData, settings);
+    const { html: weatherHtml } = renderWeatherCard(weatherData, cityName, fetchedAt);
+    const hourlyHtml = renderHourlyForecast(weatherData);
+    const rainTimelineHtml = renderRainTimeline(weatherData);
+    const laundryHtml = renderLaundryAdvice(precip, precipProb, wind, settings);
+    const heatstrokeHtml = renderHeatstrokeAlert(weatherData);
+    const clothesHtml = renderKidsClothes(settings.kids, maxTemp, precipProb, uvIndex, hourlyTemps);
+    const weekHtml = renderWeekForecast(weatherData);
+
+    document.getElementById('dashboard-content').innerHTML =
+      quickSummaryHtml + weatherHtml + hourlyHtml + rainTimelineHtml + laundryHtml + heatstrokeHtml + clothesHtml + weekHtml;
+
+    lastRefreshTime = Date.now();
+  } finally {
+    showLoading(false);
   }
-
-  const quickSummaryHtml = renderQuickSummary(weatherData, settings);
-  const { html: weatherHtml } = renderWeatherCard(weatherData, cityName, fetchedAt);
-  const hourlyHtml = renderHourlyForecast(weatherData);
-  const rainTimelineHtml = renderRainTimeline(weatherData);
-  const laundryHtml = renderLaundryAdvice(precip, precipProb, wind, settings);
-  const heatstrokeHtml = renderHeatstrokeAlert(weatherData);
-  const clothesHtml = renderKidsClothes(settings.kids, maxTemp, precipProb, uvIndex, hourlyTemps);
-  const weekHtml = renderWeekForecast(weatherData);
-
-  document.getElementById('dashboard-content').innerHTML =
-    quickSummaryHtml + weatherHtml + hourlyHtml + rainTimelineHtml + laundryHtml + heatstrokeHtml + clothesHtml + weekHtml;
-
-  lastRefreshTime = Date.now();
-  showLoading(false);
 }
 
 

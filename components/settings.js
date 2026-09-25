@@ -99,6 +99,11 @@ function renderSettingsForm(settings) {
 
 function bindSettingsEvents(settings, onSave) {
   const kidsCountEl = document.getElementById('setting-kids-count');
+  let cityManuallyEdited = false;
+
+  document.getElementById('setting-city').addEventListener('input', () => {
+    cityManuallyEdited = true;
+  });
 
   kidsCountEl.addEventListener('change', () => {
     const count = parseInt(kidsCountEl.value, 10);
@@ -194,8 +199,10 @@ function bindSettingsEvents(settings, onSave) {
       return;
     }
 
-    // Clear GPS coordinates if the city was changed manually after GPS lookup
-    if (city !== settings.city) {
+    // Clear GPS coordinates only if the user manually edited the city text.
+    // GPS lookup also changes the city text (via reverse geocoding), so comparing
+    // against the old city value alone would always discard the fresh coordinates.
+    if (cityManuallyEdited) {
       settings.lat = null;
       settings.lon = null;
     }
