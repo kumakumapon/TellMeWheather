@@ -3,16 +3,6 @@
 // Cache key for last known weather data
 const CACHE_KEY = 'tellmeweather_cache';
 
-function escapeHtml(value) {
-  return String(value ?? '').replace(/[&<>"']/g, (char) => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;',
-  }[char]));
-}
-
 let currentSettings = null;
 let currentView = 'dashboard'; // 'dashboard' | 'settings'
 let lastRefreshTime = Date.now();
@@ -23,6 +13,8 @@ function showView(view) {
   document.getElementById('view-settings').style.display = view === 'settings' ? '' : 'none';
   document.getElementById('nav-dashboard').classList.toggle('active', view === 'dashboard');
   document.getElementById('nav-settings').classList.toggle('active', view === 'settings');
+  document.getElementById('nav-dashboard').setAttribute('aria-selected', String(view === 'dashboard'));
+  document.getElementById('nav-settings').setAttribute('aria-selected', String(view === 'settings'));
 }
 
 function showError(msg) {
@@ -34,6 +26,7 @@ function showError(msg) {
 function showLoading(show) {
   const loadingEl = document.getElementById('loading');
   const contentEl = document.getElementById('dashboard-content');
+  document.getElementById('view-dashboard').setAttribute('aria-busy', String(show));
   if (show) {
     loadingEl.innerHTML = renderSkeletonUI();
     loadingEl.style.display = '';
@@ -154,8 +147,6 @@ async function loadDashboard(settings) {
     const uvIndex = daily.uv_index_max ? (daily.uv_index_max[tomorrowIdx] ?? 0) : 0;
     const fetchedAt = Date.now();
 
-    console.log(`Weather data for tomorrow (${daily.time[tomorrowIdx]}): code=${daily.weather_code[tomorrowIdx]}, temp=${maxTemp}°C, precip=${precip}mm, precipProb=${precipProb}%`);
-
     let hourlyTemps = null;
     if (weatherData.hourly && weatherData.hourly.time) {
       const tomorrowDate = daily.time[tomorrowIdx];
@@ -177,7 +168,8 @@ async function loadDashboard(settings) {
     const { html: weatherHtml } = renderWeatherCard(weatherData, cityName, fetchedAt);
     const hourlyHtml = renderHourlyForecast(weatherData);
     const rainTimelineHtml = renderRainTimeline(weatherData);
-    const laundryHtml = renderLaundryAdvice(precip, precipProb, wind, settings);
+    const tomorrowMonth = parseLocalDate(daily.time[tomorrowIdx]).getMonth() + 1;
+    const laundryHtml = renderLaundryAdvice(precip, precipProb, wind, settings, tomorrowMonth);
     const heatstrokeHtml = renderHeatstrokeAlert(weatherData);
     const clothesHtml = renderKidsClothes(settings.kids, maxTemp, precipProb, uvIndex, hourlyTemps);
     const weekHtml = renderWeekForecast(weatherData, settings);
@@ -202,7 +194,8 @@ function renderQuickSummary(weatherData, settings) {
   const wind = daily.wind_speed_10m_max[tomorrowIdx] ?? 0;
   const uvIndex = daily.uv_index_max ? (daily.uv_index_max[tomorrowIdx] ?? 0) : 0;
   const weatherInfo = getWeatherInfo(daily.weather_code[tomorrowIdx]);
-  const laundry = getLaundryAdvice(precip, precipProb, wind, settings);
+  const tomorrowMonth = parseLocalDate(daily.time[tomorrowIdx]).getMonth() + 1;
+  const laundry = getLaundryAdvice(precip, precipProb, wind, settings, tomorrowMonth);
   const clothing = getClothingAdvice(maxTemp, 'normal', precipProb, uvIndex);
   const bestLaundryDay = findBestLaundryDay(daily, settings);
 
@@ -233,7 +226,7 @@ function renderQuickSummary(weatherData, settings) {
           </h2>
           <p class="quick-subtitle">${tempLabel}・降水確率${Math.round(precipProb)}%・最大風速${Math.round(wind)}km/h</p>
         </div>
-        <button class="quick-refresh" onclick="window.refreshWeather()" type="button">更新</button>
+        <button class="quick-refresh" data-action="refresh" type="button">更新</button>
       </div>
       <div class="quick-chips">
         ${chips.map(chip => `<span class="quick-chip ${chip.cls}">${chip.icon} ${escapeHtml(chip.label)}</span>`).join('')}
@@ -250,9 +243,9 @@ function findBestLaundryDay(daily, settings) {
     const precip = daily.precipitation_sum[i] ?? 0;
     const precipProb = daily.precipitation_probability_max[i] ?? 0;
     const wind = daily.wind_speed_10m_max[i] ?? 0;
+    const date = parseLocalDate(daily.time[i]);
 
-    if (getLaundryAdvice(precip, precipProb, wind, settings).status === 'ok') {
-      const date = parseLocalDate(daily.time[i]);
+    if (getLaundryAdvice(precip, precipProb, wind, settings, date.getMonth() + 1).status === 'ok') {
       const label = i === 1 ? '明日' : `${date.getMonth() + 1}/${date.getDate()}(${DAYS[date.getDay()]})`;
       return `${label}（☔${Math.round(precipProb)}%）`;
     }
@@ -262,8 +255,11 @@ function findBestLaundryDay(daily, settings) {
 }
 
 function renderSettingsView(settings) {
-  document.getElementById('settings-content').innerHTML = renderSettingsForm(settings);
-  bindSettingsEvents(settings, (newSettings) => {
+  // Edit a copy so unsaved changes (kid names, GPS lookups, etc.) don't leak
+  // into currentSettings if the user navigates away without saving.
+  const draft = JSON.parse(JSON.stringify(settings));
+  document.getElementById('settings-content').innerHTML = renderSettingsForm(draft);
+  bindSettingsEvents(draft, (newSettings) => {
     currentSettings = newSettings;
     showView('dashboard');
     loadDashboard(newSettings);
@@ -305,8 +301,15 @@ document.addEventListener('DOMContentLoaded', () => {
   initTheme();
   document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
 
-  // Global refresh handler (called from inline onclick in weather card)
   window.refreshWeather = () => loadDashboard(currentSettings);
+
+  // Delegated click handler for the refresh buttons rendered inside
+  // dashboard-content (avoids inline onclick= attributes, which CSP blocks).
+  document.getElementById('dashboard-content').addEventListener('click', (e) => {
+    if (e.target.closest('[data-action="refresh"]')) {
+      window.refreshWeather();
+    }
+  });
 
   // Nav buttons
   document.getElementById('nav-dashboard').addEventListener('click', () => {

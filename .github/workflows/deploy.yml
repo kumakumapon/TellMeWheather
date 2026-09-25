@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - copilot/implement-spec-md-contents
   workflow_dispatch:
 
 permissions:
@@ -29,10 +28,16 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
+      - name: Prepare site directory
+        run: |
+          mkdir -p _site
+          cp index.html style.css app.js manifest.json sw.js _site/
+          cp -r components assets _site/
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: '.'
+          path: '_site'
 
       - name: Deploy to GitHub Pages
         id: deployment

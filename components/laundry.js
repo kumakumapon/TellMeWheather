@@ -2,15 +2,13 @@
 
 const STRONG_WIND_THRESHOLD_KMH = 8 * 3.6; // 8m/s in km/h
 
-function getLaundryAdvice(precip, precipProb, wind, settings) {
+function getLaundryAdvice(precip, precipProb, wind, settings, month) {
   const considerPollen = settings.considerPollen ?? false;
   const considerWind = settings.considerWind ?? true;
 
   let status = 'ok';       // 'ok' | 'caution' | 'ng'
   let label = '外干しOK';
   const comments = [];
-
-  console.log(`Laundry calc: precip=${precip}mm, precipProb=${precipProb}%, wind=${wind}km/h, threshold=${STRONG_WIND_THRESHOLD_KMH}km/h`);
 
   if (precip > 0 || precipProb >= 50) {
     status = 'ng';
@@ -23,9 +21,13 @@ function getLaundryAdvice(precip, precipProb, wind, settings) {
   }
 
   if (considerPollen && status !== 'ng') {
-    // Simple heuristic: spring months (2-5) or autumn (8-10)
-    const month = new Date().getMonth() + 1; // 1-based, but we check tomorrow ~same month
-    if (month >= 2 && month <= 5) {
+    // Simple heuristic: spring months (2-5) or autumn (8-10).
+    // `month` is the month of the day being judged (1-12), passed in by the
+    // caller — using "today"'s month here was wrong for any day other than
+    // today, and skipped autumn entirely despite the comment/README saying
+    // both seasons apply.
+    const m = month ?? new Date().getMonth() + 1;
+    if ((m >= 2 && m <= 5) || (m >= 8 && m <= 10)) {
       if (status === 'ok') {
         status = 'caution';
         label = '外干し注意';
@@ -41,8 +43,8 @@ function getLaundryAdvice(precip, precipProb, wind, settings) {
   return { status, label, comments };
 }
 
-function renderLaundryAdvice(precip, precipProb, wind, settings) {
-  const { status, label, comments } = getLaundryAdvice(precip, precipProb, wind, settings);
+function renderLaundryAdvice(precip, precipProb, wind, settings, month) {
+  const { status, label, comments } = getLaundryAdvice(precip, precipProb, wind, settings, month);
 
   const iconMap = {
     ok:      '✅',
@@ -68,4 +70,8 @@ function renderLaundryAdvice(precip, precipProb, wind, settings) {
       </ul>
     </div>
   `;
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { getLaundryAdvice, STRONG_WIND_THRESHOLD_KMH };
 }

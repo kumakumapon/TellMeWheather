@@ -8,10 +8,11 @@ const WMO_SEVERITY_ORDER = [
   51, 53, 55, 56, 57,     // drizzle (incl. freezing)
   61, 80,                 // slight rain / slight showers
   71,                     // slight snow
+  77,                     // snow grains (light precipitation)
   63, 81,                 // moderate rain / moderate showers
   73, 85,                 // moderate snow / slight snow showers
   65, 66,                 // heavy rain / light freezing rain
-  75, 77,                 // heavy snow / snow grains
+  75,                     // heavy snow
   67, 86,                 // heavy freezing rain / heavy snow showers
   82,                     // violent rain showers
   95, 96, 99,             // thunderstorm (incl. hail)
@@ -20,6 +21,54 @@ const WMO_SEVERITY_ORDER = [
 function getWeatherSeverity(code) {
   const idx = WMO_SEVERITY_ORDER.indexOf(code);
   return idx === -1 ? 0 : idx;
+}
+
+function buildSummary(slots) {
+  if (slots.length === 0) return '';
+
+  const labelOf = slot => slot.info.label;
+  const isRainy = code => {
+    const label = code.info.label;
+    return label.includes('雨') || label.includes('雷') || label.includes('霧雨');
+  };
+  const isCloudy = slot => slot.info.label.includes('曇');
+  const isSunny = slot => slot.info.label.includes('晴') || slot.info.label === '快晴';
+
+  const morning = slots.find(s => s.name === '朝');
+  const afternoon = slots.find(s => s.name === '昼過ぎ');
+  const evening = slots.find(s => s.name === '夕方');
+
+  const parts = [];
+
+  if (morning && afternoon) {
+    if (!isRainy(morning) && isRainy(afternoon)) {
+      parts.push('昼から雨');
+    } else if (isRainy(morning) && !isRainy(afternoon)) {
+      parts.push('午前中は雨、昼から回復');
+    } else if (isRainy(morning) && isRainy(afternoon)) {
+      if (evening && !isRainy(evening)) {
+        parts.push('雨は夕方までに止む見込み');
+      } else {
+        parts.push('一日中雨の見込み');
+      }
+    } else if (isSunny(morning) && isCloudy(afternoon)) {
+      parts.push('朝は晴れ、午後から曇り');
+    } else if (isCloudy(morning) && isSunny(afternoon)) {
+      parts.push('朝は曇り、午後から晴れ');
+    } else if (isSunny(morning) && isSunny(afternoon)) {
+      parts.push('終日晴れの見込み');
+    } else {
+      parts.push('おおむね' + labelOf(morning));
+    }
+  } else if (slots.length > 0) {
+    parts.push('おおむね' + labelOf(slots[0]));
+  }
+
+  if (evening && isRainy(evening) && parts.length > 0 && !parts[0].includes('雨')) {
+    parts.push('夕方から雨');
+  }
+
+  return parts.join('、') + 'でしょう';
 }
 
 function renderHourlyForecast(data) {
@@ -63,54 +112,6 @@ function renderHourlyForecast(data) {
 
     return { name: slot.name, avgTemp, maxPrecipProb, code: worstCode, info };
   }).filter(Boolean);
-
-  function buildSummary(slots) {
-    if (slots.length === 0) return '';
-
-    const labelOf = slot => slot.info.label;
-    const isRainy = code => {
-      const label = code.info.label;
-      return label.includes('雨') || label.includes('雷') || label.includes('霧雨');
-    };
-    const isCloudy = slot => slot.info.label.includes('曇');
-    const isSunny = slot => slot.info.label.includes('晴') || slot.info.label === '快晴';
-
-    const morning = slots.find(s => s.name === '朝');
-    const afternoon = slots.find(s => s.name === '昼過ぎ');
-    const evening = slots.find(s => s.name === '夕方');
-
-    const parts = [];
-
-    if (morning && afternoon) {
-      if (!isRainy(morning) && isRainy(afternoon)) {
-        parts.push('昼から雨');
-      } else if (isRainy(morning) && !isRainy(afternoon)) {
-        parts.push('午前中は雨、昼から回復');
-      } else if (isRainy(morning) && isRainy(afternoon)) {
-        if (evening && !isRainy(evening)) {
-          parts.push('雨は夕方までに止む見込み');
-        } else {
-          parts.push('一日中雨の見込み');
-        }
-      } else if (isSunny(morning) && isCloudy(afternoon)) {
-        parts.push('朝は晴れ、午後から曇り');
-      } else if (isCloudy(morning) && isSunny(afternoon)) {
-        parts.push('朝は曇り、午後から晴れ');
-      } else if (isSunny(morning) && isSunny(afternoon)) {
-        parts.push('終日晴れの見込み');
-      } else {
-        parts.push('おおむね' + labelOf(morning));
-      }
-    } else if (slots.length > 0) {
-      parts.push('おおむね' + labelOf(slots[0]));
-    }
-
-    if (evening && isRainy(evening) && parts.length > 0 && !parts[0].includes('雨')) {
-      parts.push('夕方から雨');
-    }
-
-    return parts.join('、') + 'でしょう';
-  }
 
   const summary = buildSummary(slots);
 
@@ -178,4 +179,8 @@ function renderRainTimeline(data) {
       <div class="rain-labels">${labelsHtml}</div>
     </div>
   `;
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { buildSummary, getWeatherSeverity };
 }
