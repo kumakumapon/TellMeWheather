@@ -133,8 +133,11 @@ function renderHourlyForecast(data) {
   `;
 }
 
-function renderRainTimeline(data) {
-  if (!data.hourly || !data.hourly.time) return '';
+// Hourly precipitation probability for tomorrow, 6:00-21:00. Shared by the
+// rain timeline card and the laundry pickup-time advice below so both read
+// from the same hour-by-hour data instead of each re-deriving it.
+function buildHourlyRainProbabilities(data) {
+  if (!data.hourly || !data.hourly.time) return [];
 
   const tomorrowDate = data.daily.time[1];
   const hourly = data.hourly;
@@ -146,6 +149,22 @@ function renderRainTimeline(data) {
     const prob = idx >= 0 ? (hourly.precipitation_probability[idx] ?? 0) : 0;
     hours.push({ h, prob });
   }
+  return hours;
+}
+
+// If rain becomes likely (>=50%) sometime after 9am, suggest bringing
+// laundry in an hour before it starts. Ignores earlier hours since laundry
+// wouldn't realistically be hung out before then anyway.
+function getLaundryPickupAdvice(hours) {
+  const firstRain = hours.find(({ h, prob }) => h >= 9 && prob >= 50);
+  if (!firstRain) return null;
+  return `${firstRain.h}時から雨の可能性。${firstRain.h - 1}時までに取り込むと安心です`;
+}
+
+function renderRainTimeline(data) {
+  if (!data.hourly || !data.hourly.time) return '';
+
+  const hours = buildHourlyRainProbabilities(data);
 
   function barColor(prob) {
     if (prob >= 80) return '#1565c0';
@@ -182,5 +201,5 @@ function renderRainTimeline(data) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { buildSummary, getWeatherSeverity };
+  module.exports = { buildSummary, getWeatherSeverity, buildHourlyRainProbabilities, getLaundryPickupAdvice };
 }
