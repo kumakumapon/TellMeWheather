@@ -180,7 +180,7 @@ async function loadDashboard(settings) {
     const laundryHtml = renderLaundryAdvice(precip, precipProb, wind, settings);
     const heatstrokeHtml = renderHeatstrokeAlert(weatherData);
     const clothesHtml = renderKidsClothes(settings.kids, maxTemp, precipProb, uvIndex, hourlyTemps);
-    const weekHtml = renderWeekForecast(weatherData);
+    const weekHtml = renderWeekForecast(weatherData, settings);
 
     document.getElementById('dashboard-content').innerHTML =
       quickSummaryHtml + weatherHtml + hourlyHtml + rainTimelineHtml + laundryHtml + heatstrokeHtml + clothesHtml + weekHtml;
@@ -245,16 +245,14 @@ function renderQuickSummary(weatherData, settings) {
 
 function findBestLaundryDay(daily, settings) {
   const DAYS = ['日','月','火','水','木','金','土'];
-  const considerWind = settings.considerWind ?? true;
 
   for (let i = 1; i < daily.time.length; i += 1) {
     const precip = daily.precipitation_sum[i] ?? 0;
     const precipProb = daily.precipitation_probability_max[i] ?? 0;
     const wind = daily.wind_speed_10m_max[i] ?? 0;
-    const windy = considerWind && wind >= STRONG_WIND_THRESHOLD_KMH;
 
-    if (precip === 0 && precipProb < 40 && !windy) {
-      const date = new Date(daily.time[i]);
+    if (getLaundryAdvice(precip, precipProb, wind, settings).status === 'ok') {
+      const date = parseLocalDate(daily.time[i]);
       const label = i === 1 ? '明日' : `${date.getMonth() + 1}/${date.getDate()}(${DAYS[date.getDay()]})`;
       return `${label}（☔${Math.round(precipProb)}%）`;
     }

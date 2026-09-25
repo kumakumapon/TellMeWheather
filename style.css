@@ -842,6 +842,18 @@ html.dark-mode .quick-summary {
   margin-top: 4px;
 }
 
+.heat-message {
+  font-size: 0.92rem;
+  color: var(--color-text);
+  margin-bottom: 8px;
+}
+
+.heat-tips {
+  font-size: 0.85rem;
+  color: var(--color-text-light);
+  margin-top: 6px;
+}
+
 /* ===== SKELETON LOADING ===== */
 .skeleton-card {
   background: var(--color-white);

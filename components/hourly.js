@@ -1,3 +1,27 @@
+// WMO weather codes ordered from mildest to most severe. The numeric code
+// value does not correlate with severity (e.g. 77 "snow grains" > 65 "heavy
+// rain" numerically but is not worse), so pick the "worst" hour by looking
+// up each code's position in this table instead of comparing codes directly.
+const WMO_SEVERITY_ORDER = [
+  0, 1, 2, 3,             // clear -> overcast
+  45, 48,                 // fog
+  51, 53, 55, 56, 57,     // drizzle (incl. freezing)
+  61, 80,                 // slight rain / slight showers
+  71,                     // slight snow
+  63, 81,                 // moderate rain / moderate showers
+  73, 85,                 // moderate snow / slight snow showers
+  65, 66,                 // heavy rain / light freezing rain
+  75, 77,                 // heavy snow / snow grains
+  67, 86,                 // heavy freezing rain / heavy snow showers
+  82,                     // violent rain showers
+  95, 96, 99,             // thunderstorm (incl. hail)
+];
+
+function getWeatherSeverity(code) {
+  const idx = WMO_SEVERITY_ORDER.indexOf(code);
+  return idx === -1 ? 0 : idx;
+}
+
 function renderHourlyForecast(data) {
   if (!data.hourly || !data.hourly.time) return '';
 
@@ -31,9 +55,10 @@ function renderHourlyForecast(data) {
     const maxPrecipProb = Math.max(...indices.map(({ i }) => hourly.precipitation_probability[i] ?? 0));
 
     const codes = indices.map(({ i }) => hourly.weather_code[i]);
-    const codeFreq = {};
-    codes.forEach(c => { codeFreq[c] = (codeFreq[c] || 0) + 1; });
-    const worstCode = codes.reduce((a, b) => b > a ? b : a, codes[0]);
+    const worstCode = codes.reduce(
+      (a, b) => (getWeatherSeverity(b) > getWeatherSeverity(a) ? b : a),
+      codes[0]
+    );
     const info = getWeatherInfo(worstCode);
 
     return { name: slot.name, avgTemp, maxPrecipProb, code: worstCode, info };
@@ -125,7 +150,7 @@ function renderRainTimeline(data) {
     if (prob >= 80) return '#1565c0';
     if (prob >= 60) return '#42a5f5';
     if (prob >= 30) return '#90caf9';
-    return '#e0e0e0';
+    return 'var(--color-border)';
   }
 
   const barsHtml = hours.map(({ prob }) => {

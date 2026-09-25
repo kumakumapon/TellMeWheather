@@ -1,5 +1,14 @@
 // Weather component: API calls and weather data display
 
+// Open-Meteo returns date-only ISO strings (e.g. "2026-09-21"). `new Date(str)`
+// parses that as UTC midnight, so getDay()/getMonth() (which read local time)
+// can shift by a day outside UTC+ timezones. Build the Date from local
+// components instead so day-of-week/date labels match the intended date.
+function parseLocalDate(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
 // WMO weather codes used by Open-Meteo
 const WMO_CODES = {
   0:  { label: '快晴',             emoji: '☀️' },
@@ -124,7 +133,7 @@ function renderWeatherCard(data, cityName, lastUpdated) {
     const minTemp = Math.round(daily.temperature_2m_min[idx]);
     const precipProb = daily.precipitation_probability_max[idx] ?? 0;
     const wind = Math.round(daily.wind_speed_10m_max[idx] ?? 0);
-    const date = new Date(daily.time[idx]);
+    const date = parseLocalDate(daily.time[idx]);
     const dateStr = `${date.getMonth() + 1}/${date.getDate()}(${DAYS[date.getDay()]})`;
     const uvRaw = daily.uv_index_max ? daily.uv_index_max[idx] : null;
     const uvLevel = getUvLevel(uvRaw);
@@ -171,20 +180,22 @@ function renderWeatherCard(data, cityName, lastUpdated) {
   };
 }
 
-function renderWeekForecast(data) {
+function renderWeekForecast(data, settings) {
   const daily = data.daily;
   const DAYS = ['日','月','火','水','木','金','土'];
   let cols = '';
   // Show from tomorrow onward for all available days
   for (let i = 1; i < daily.time.length; i++) {
-    const date = new Date(daily.time[i]);
+    const date = parseLocalDate(daily.time[i]);
     const dayLabel = DAYS[date.getDay()];
     const dateLabel = `${date.getMonth()+1}/${date.getDate()}`;
     const info = getWeatherInfo(daily.weather_code[i]);
     const maxT = Math.round(daily.temperature_2m_max[i]);
     const minT = Math.round(daily.temperature_2m_min[i]);
     const prob = daily.precipitation_probability_max[i] ?? 0;
-    const laundryOk = prob < 50;
+    const precip = daily.precipitation_sum[i] ?? 0;
+    const wind = daily.wind_speed_10m_max[i] ?? 0;
+    const laundryOk = getLaundryAdvice(precip, prob, wind, settings).status === 'ok';
     cols += `
       <div class="week-col">
         <div class="week-col-date">${dateLabel}</div>

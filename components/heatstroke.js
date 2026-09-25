@@ -62,9 +62,9 @@ function renderHeatstrokeAlert(weatherData) {
       <div class="heat-level" style="background: ${heat.color}15; color: ${heat.color}; padding: 8px 12px; border-radius: 8px; font-weight: 700; font-size: 1.1rem; margin-bottom: 8px;">
         ${heat.label}（最高${Math.round(maxTemp)}℃）
       </div>
-      <p class="heat-message" style="font-size: 0.92rem; color: #2c3e50; margin-bottom: 8px;">${heat.message}</p>
+      <p class="heat-message">${heat.message}</p>
       ${peakHtml}
-      <div class="heat-tips" style="font-size: 0.85rem; color: #6c8ea0; margin-top: 6px;">
+      <div class="heat-tips">
         持ち物：${tips.join('、')}
       </div>
     </div>
