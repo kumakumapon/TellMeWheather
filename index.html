@@ -23,13 +23,13 @@
     </div>
   </header>
 
-  <nav class="app-nav">
-    <button id="nav-dashboard" class="nav-btn active">🏠 ダッシュボード</button>
-    <button id="nav-settings" class="nav-btn">⚙️ 設定</button>
+  <nav class="app-nav" role="tablist">
+    <button id="nav-dashboard" class="nav-btn active" role="tab" aria-selected="true">🏠 ダッシュボード</button>
+    <button id="nav-settings" class="nav-btn" role="tab" aria-selected="false">⚙️ 設定</button>
   </nav>
 
   <main class="app-main">
-    <div id="error-banner" class="error-banner" style="display:none;"></div>
+    <div id="error-banner" class="error-banner" role="alert" aria-live="polite" style="display:none;"></div>
 
     <!-- Dashboard View -->
     <div id="view-dashboard">
@@ -48,6 +48,7 @@
   </footer>
 
   <!-- Components -->
+  <script src="components/utils.js"></script>
   <script src="components/weather.js"></script>
   <script src="components/laundry.js"></script>
   <script src="components/clothes.js"></script>

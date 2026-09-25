@@ -1,0 +1,8 @@
+{
+  "name": "tellmeweather",
+  "private": true,
+  "description": "明日の洗濯・服装チェックWebアプリ",
+  "scripts": {
+    "test": "node --test"
+  }
+}

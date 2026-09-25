@@ -15,6 +15,7 @@ const SHELL_FILES = [
   './components/settings.js',
   './assets/app-background.png',
   './assets/app-icon.png',
+  './assets/app-icon-192.png',
   './assets/weather/sunny.png',
   './assets/weather/cloudy.png',
   './assets/weather/rainy.png',

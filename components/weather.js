@@ -67,7 +67,7 @@ function renderWeatherVisual(code, info, sizeClass = '') {
 
   return `
     <span class="weather-visual ${sizeClass}" aria-hidden="true">
-      <img src="${imagePath}" alt="" loading="lazy" decoding="async"
+      <img src="${imagePath}" alt="" width="256" height="256" loading="lazy" decoding="async"
         onerror="this.hidden=true;this.nextElementSibling.hidden=false">
       <span class="weather-emoji-fallback" hidden>${info.emoji}</span>
     </span>
@@ -169,7 +169,7 @@ function renderWeatherCard(data, cityName, lastUpdated) {
         <div class="card-title">
           🌤 今日・明日の天気 <span class="city-name">${escapeHtml(cityName)}</span>
           ${updatedStr}
-          <button class="refresh-btn" onclick="window.refreshWeather()" title="天気を更新">🔄</button>
+          <button class="refresh-btn" data-action="refresh" title="天気を更新">🔄</button>
         </div>
         <div class="today-tomorrow-grid">
           ${buildDayBlock(0, '今日')}
@@ -195,7 +195,7 @@ function renderWeekForecast(data, settings) {
     const prob = daily.precipitation_probability_max[i] ?? 0;
     const precip = daily.precipitation_sum[i] ?? 0;
     const wind = daily.wind_speed_10m_max[i] ?? 0;
-    const laundryOk = getLaundryAdvice(precip, prob, wind, settings).status === 'ok';
+    const laundryOk = getLaundryAdvice(precip, prob, wind, settings, date.getMonth() + 1).status === 'ok';
     cols += `
       <div class="week-col">
         <div class="week-col-date">${dateLabel}</div>
@@ -213,4 +213,8 @@ function renderWeekForecast(data, settings) {
       <div class="week-cols">${cols}</div>
     </div>
   `;
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { getWeatherInfo, parseLocalDate };
 }

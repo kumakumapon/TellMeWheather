@@ -70,3 +70,7 @@ function renderHeatstrokeAlert(weatherData) {
     </div>
   `;
 }
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { getHeatLevel };
+}

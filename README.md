@@ -59,7 +59,7 @@
 | 項目 | 内容 |
 |------|------|
 | フロントエンド | HTML / CSS / JavaScript（バニラ） |
-| 天気API | [wttr.in](https://wttr.in/)（無料・APIキー不要・3日間予報） |
+| 天気API | [Open-Meteo](https://open-meteo.com/)（無料・APIキー不要・7日間予報） |
 | ジオコーディング | [Nominatim](https://nominatim.openstreetmap.org/)（OpenStreetMap、無料・APIキー不要） |
 | データ保存 | `localStorage`（ユーザー設定・キャッシュ） |
 | ホスティング | GitHub Pages |
@@ -102,9 +102,12 @@
 ├── app.js                # メインコントローラー
 ├── assets/               # GPT Image 2 で生成した背景・アイコン・天気画像
 ├── components/
+│   ├── utils.js          # 共通ユーティリティ（escapeHtmlなど）
 │   ├── weather.js        # 天気API呼び出し・天気カード表示
 │   ├── laundry.js        # 洗濯アドバイス判定・表示
 │   ├── clothes.js        # 子どもの服装アドバイス判定・表示
+│   ├── hourly.js         # 時間帯別予報・降雨タイムライン
+│   ├── heatstroke.js     # 熱中症アラート
 │   └── settings.js       # 設定フォーム・localStorageへの保存
 └── .github/
     └── workflows/

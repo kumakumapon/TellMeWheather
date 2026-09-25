@@ -108,3 +108,7 @@ function renderKidsClothes(kids, maxTemp, precipProb, uvIndex, hourlyTemps) {
     </div>
   `;
 }
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { getClothingAdvice, gradeLabel, sensitivityLabel };
+}

@@ -34,10 +34,8 @@ function saveSettings(settings) {
   }
 }
 
-function renderSettingsForm(settings) {
-  const kidsCount = settings.kids ? settings.kids.length : 1;
-
-  const kidsHtml = (settings.kids || []).map((kid, i) => `
+function renderKidSetting(kid, i) {
+  return `
     <div class="kid-setting" data-idx="${i}">
       <div class="kid-setting-title">子ども${i + 1}</div>
       <label>名前（任意）
@@ -56,7 +54,13 @@ function renderSettingsForm(settings) {
         </select>
       </label>
     </div>
-  `).join('');
+  `;
+}
+
+function renderSettingsForm(settings) {
+  const kidsCount = settings.kids ? settings.kids.length : 1;
+
+  const kidsHtml = (settings.kids || []).map((kid, i) => renderKidSetting(kid, i)).join('');
 
   return `
     <div class="settings-form">
@@ -114,26 +118,7 @@ function bindSettingsEvents(settings, onSave) {
     settings.kids = current.slice(0, count);
     // Re-render kids list
     document.getElementById('kids-list').innerHTML =
-      settings.kids.map((kid, i) => `
-        <div class="kid-setting" data-idx="${i}">
-          <div class="kid-setting-title">子ども${i + 1}</div>
-          <label>名前（任意）
-            <input type="text" class="kid-name" data-idx="${i}" value="${escapeHtml(kid.name || '')}" placeholder="例：たろう" maxlength="20">
-          </label>
-          <label>学年
-            <select class="kid-grade" data-idx="${i}">
-              ${GRADES.map(g => `<option value="${g}" ${kid.grade === g ? 'selected' : ''}>${g}</option>`).join('')}
-            </select>
-          </label>
-          <label>体感温度
-            <select class="kid-sensitivity" data-idx="${i}">
-              <option value="cold" ${kid.sensitivity === 'cold' ? 'selected' : ''}>寒がり</option>
-              <option value="normal" ${kid.sensitivity === 'normal' ? 'selected' : ''}>普通</option>
-              <option value="hot" ${kid.sensitivity === 'hot' ? 'selected' : ''}>暑がり</option>
-            </select>
-          </label>
-        </div>
-      `).join('');
+      settings.kids.map((kid, i) => renderKidSetting(kid, i)).join('');
     bindKidInputEvents(settings);
   });
 
