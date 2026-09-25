@@ -169,7 +169,10 @@ async function loadDashboard(settings) {
     const hourlyHtml = renderHourlyForecast(weatherData);
     const rainTimelineHtml = renderRainTimeline(weatherData);
     const tomorrowMonth = parseLocalDate(daily.time[tomorrowIdx]).getMonth() + 1;
-    const laundryHtml = renderLaundryAdvice(precip, precipProb, wind, settings, tomorrowMonth);
+    const pickupAdvice = weatherData.hourly
+      ? getLaundryPickupAdvice(buildHourlyRainProbabilities(weatherData))
+      : null;
+    const laundryHtml = renderLaundryAdvice(precip, precipProb, wind, settings, tomorrowMonth, pickupAdvice);
     const heatstrokeHtml = renderHeatstrokeAlert(weatherData);
     const clothesHtml = renderKidsClothes(settings.kids, maxTemp, precipProb, uvIndex, hourlyTemps);
     const weekHtml = renderWeekForecast(weatherData, settings);

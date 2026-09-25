@@ -51,3 +51,13 @@ test('pollen consideration is ignored once already ng from rain', () => {
   const result = getLaundryAdvice(1, 0, 0, { considerPollen: true }, 3);
   assert.equal(result.status, 'ng');
 });
+
+test('pickup advice is included in comments when laundry is going outside', () => {
+  const result = getLaundryAdvice(0, 20, 0, {}, 6, '15時から雨の可能性。14時までに取り込むと安心です');
+  assert.ok(result.comments.includes('15時から雨の可能性。14時までに取り込むと安心です'));
+});
+
+test('pickup advice is ignored when status is already ng', () => {
+  const result = getLaundryAdvice(1, 0, 0, {}, 6, '15時から雨の可能性。14時までに取り込むと安心です');
+  assert.ok(!result.comments.includes('15時から雨の可能性。14時までに取り込むと安心です'));
+});

@@ -2,7 +2,7 @@
 
 const STRONG_WIND_THRESHOLD_KMH = 8 * 3.6; // 8m/s in km/h
 
-function getLaundryAdvice(precip, precipProb, wind, settings, month) {
+function getLaundryAdvice(precip, precipProb, wind, settings, month, pickupAdvice) {
   const considerPollen = settings.considerPollen ?? false;
   const considerWind = settings.considerWind ?? true;
 
@@ -36,6 +36,11 @@ function getLaundryAdvice(precip, precipProb, wind, settings, month) {
     }
   }
 
+  // Only worth mentioning if laundry is actually going outside today.
+  if (status !== 'ng' && pickupAdvice) {
+    comments.push(pickupAdvice);
+  }
+
   if (comments.length === 0) {
     comments.push('洗濯日和です！');
   }
@@ -43,8 +48,8 @@ function getLaundryAdvice(precip, precipProb, wind, settings, month) {
   return { status, label, comments };
 }
 
-function renderLaundryAdvice(precip, precipProb, wind, settings, month) {
-  const { status, label, comments } = getLaundryAdvice(precip, precipProb, wind, settings, month);
+function renderLaundryAdvice(precip, precipProb, wind, settings, month, pickupAdvice) {
+  const { status, label, comments } = getLaundryAdvice(precip, precipProb, wind, settings, month, pickupAdvice);
 
   const iconMap = {
     ok:      '✅',

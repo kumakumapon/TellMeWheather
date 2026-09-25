@@ -1,8 +1,27 @@
 // Heat stroke alert component
 
+// Australian Bureau of Meteorology's simplified outdoor/shade WBGT
+// approximation, using air temperature and relative humidity (via vapor
+// pressure). This is still an approximation (real WBGT needs a wet-bulb and
+// globe thermometer), but it's meaningfully closer to Japan's Ministry of
+// Environment 暑さ指数 than air temperature alone.
+function estimateWbgt(tempC, humidityPct) {
+  const vaporPressure = (humidityPct / 100) * 6.105 * Math.exp((17.27 * tempC) / (237.7 + tempC));
+  return 0.567 * tempC + 0.393 * vaporPressure + 3.94;
+}
+
 function getHeatLevel(maxTemp, humidity) {
-  // Simplified WBGT approximation (without humidity, use temp-based thresholds)
-  // Japan's Ministry of Environment guidelines for children
+  if (humidity != null) {
+    // WBGT-based thresholds (Japan's Ministry of Environment 暑さ指数 guide).
+    const wbgt = estimateWbgt(maxTemp, humidity);
+    if (wbgt >= 31) return { level: 'danger', label: '危険', color: '#b71c1c', icon: '🚨', message: '外での活動は避けてください。室内でも熱中症に注意。' };
+    if (wbgt >= 28) return { level: 'severe', label: '厳重警戒', color: '#e65100', icon: '⚠️', message: '激しい運動は避け、こまめに水分補給を。' };
+    if (wbgt >= 25) return { level: 'warning', label: '警戒', color: '#f39c12', icon: '💧', message: '運動時は休憩と水分補給を忘れずに。' };
+    if (wbgt >= 21) return { level: 'caution', label: '注意', color: '#27ae60', icon: '💡', message: '水筒を持参しましょう。' };
+    return null;
+  }
+
+  // No humidity data available — fall back to air-temperature-only thresholds.
   if (maxTemp >= 35) return { level: 'danger', label: '危険', color: '#b71c1c', icon: '🚨', message: '外での活動は避けてください。室内でも熱中症に注意。' };
   if (maxTemp >= 31) return { level: 'severe', label: '厳重警戒', color: '#e65100', icon: '⚠️', message: '激しい運動は避け、こまめに水分補給を。' };
   if (maxTemp >= 28) return { level: 'warning', label: '警戒', color: '#f39c12', icon: '💧', message: '運動時は休憩と水分補給を忘れずに。' };
@@ -15,12 +34,10 @@ function renderHeatstrokeAlert(weatherData) {
   const tomorrowIdx = 1;
   const maxTemp = daily.temperature_2m_max[tomorrowIdx];
 
-  const heat = getHeatLevel(maxTemp);
-  if (!heat) return '';
-
-  // Calculate afternoon peak from hourly data
+  // Calculate afternoon peak temp and average humidity from hourly data
   let peakTemp = maxTemp;
   let peakHour = null;
+  let avgHumidity = null;
   if (weatherData.hourly && weatherData.hourly.time) {
     const tomorrowDate = daily.time[tomorrowIdx];
     const afternoonHours = weatherData.hourly.time
@@ -36,8 +53,15 @@ function renderHeatstrokeAlert(weatherData) {
       });
       peakTemp = Math.round(weatherData.hourly.temperature_2m[maxH.i]);
       peakHour = parseInt(maxH.t.split('T')[1]);
+
+      if (weatherData.hourly.relative_humidity_2m) {
+        avgHumidity = afternoonHours.reduce((s, h) => s + weatherData.hourly.relative_humidity_2m[h.i], 0) / afternoonHours.length;
+      }
     }
   }
+
+  const heat = getHeatLevel(maxTemp, avgHumidity);
+  if (!heat) return '';
 
   const tips = [];
   if (maxTemp >= 31) {
@@ -72,5 +96,5 @@ function renderHeatstrokeAlert(weatherData) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { getHeatLevel };
+  module.exports = { getHeatLevel, estimateWbgt };
 }
