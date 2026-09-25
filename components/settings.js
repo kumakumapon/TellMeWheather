@@ -1,29 +1,62 @@
 // Settings component
 
 const DEFAULT_SETTINGS = {
-  city: '東京',
-  lat: null,
-  lon: null,
+  locations: [
+    { label: '自宅', city: '東京', lat: null, lon: null },
+  ],
+  activeLocationIndex: 0,
   kids: [
     { name: '', grade: '小3', sensitivity: 'normal' },
   ],
   considerPollen: false,
   considerWind: true,
+  activityDays: [false, false, false, false, false, false, false], // Sun..Sat
 };
 
+const MAX_LOCATIONS = 3;
 const GRADES = ['小1','小2','小3','小4','小5','小6','中1','中2','中3'];
+const DAY_LABELS = ['日', '月', '火', '水', '木', '金', '土'];
+
+// Fills in gaps left by settings saved before a given field existed, and
+// migrates the pre-multi-location schema (flat city/lat/lon) into locations.
+function normalizeSettings(parsed) {
+  const merged = { ...DEFAULT_SETTINGS, ...parsed };
+
+  if (!Array.isArray(parsed.locations) && parsed.city !== undefined) {
+    merged.locations = [{ label: '自宅', city: parsed.city, lat: parsed.lat ?? null, lon: parsed.lon ?? null }];
+  }
+  if (!Array.isArray(merged.locations) || merged.locations.length === 0) {
+    merged.locations = DEFAULT_SETTINGS.locations.map(loc => ({ ...loc }));
+  }
+  if (!Number.isInteger(merged.activeLocationIndex) || merged.activeLocationIndex >= merged.locations.length || merged.activeLocationIndex < 0) {
+    merged.activeLocationIndex = 0;
+  }
+  if (!Array.isArray(merged.activityDays) || merged.activityDays.length !== 7) {
+    merged.activityDays = DEFAULT_SETTINGS.activityDays.slice();
+  }
+
+  delete merged.city;
+  delete merged.lat;
+  delete merged.lon;
+
+  return merged;
+}
+
+function getActiveLocation(settings) {
+  const locations = settings.locations || DEFAULT_SETTINGS.locations;
+  return locations[settings.activeLocationIndex] || locations[0];
+}
 
 function loadSettings() {
   try {
     const raw = localStorage.getItem('tellmeweather_settings');
     if (raw) {
-      const parsed = JSON.parse(raw);
-      return { ...DEFAULT_SETTINGS, ...parsed };
+      return normalizeSettings(JSON.parse(raw));
     }
   } catch (e) {
     console.warn('設定の読み込みに失敗しました', e);
   }
-  return { ...DEFAULT_SETTINGS };
+  return normalizeSettings({});
 }
 
 function saveSettings(settings) {
@@ -57,19 +90,46 @@ function renderKidSetting(kid, i) {
   `;
 }
 
+function renderLocationSetting(loc, i, canRemove) {
+  return `
+    <div class="location-setting" data-idx="${i}">
+      <div class="location-setting-row">
+        <input type="text" class="location-label" data-idx="${i}" value="${escapeHtml(loc.label || '')}" placeholder="例：自宅" maxlength="10">
+        ${canRemove ? `<button type="button" class="location-remove" data-idx="${i}" aria-label="この地点を削除">✕</button>` : ''}
+      </div>
+      <label>市区町村名
+        <input type="text" class="location-city" data-idx="${i}" value="${escapeHtml(loc.city || '')}" placeholder="例：東京、大阪市、札幌市" maxlength="50">
+      </label>
+      <button type="button" class="btn-gps location-gps" data-idx="${i}">📍 現在地を取得</button>
+    </div>
+  `;
+}
+
 function renderSettingsForm(settings) {
   const kidsCount = settings.kids ? settings.kids.length : 1;
+  const locations = settings.locations || [];
 
   const kidsHtml = (settings.kids || []).map((kid, i) => renderKidSetting(kid, i)).join('');
+  const locationsHtml = locations.map((loc, i) => renderLocationSetting(loc, i, locations.length > 1)).join('');
+  const activityDaysHtml = DAY_LABELS.map((label, i) => `
+    <label class="activity-day-toggle">
+      <input type="checkbox" class="activity-day" data-idx="${i}" ${settings.activityDays?.[i] ? 'checked' : ''}>
+      ${label}
+    </label>
+  `).join('');
 
   return `
     <div class="settings-form">
       <section class="settings-section">
         <h2>📍 地域設定</h2>
-        <label>市区町村名
-          <input type="text" id="setting-city" value="${escapeHtml(settings.city || '')}" placeholder="例：東京、大阪市、札幌市" maxlength="50">
-        </label>
-        <button type="button" id="gps-btn" class="btn-gps">📍 現在地を取得</button>
+        <div id="locations-list">${locationsHtml}</div>
+        <button type="button" id="add-location-btn" class="btn-secondary" ${locations.length >= MAX_LOCATIONS ? 'disabled' : ''}>＋ 地点を追加（最大${MAX_LOCATIONS}件）</button>
+      </section>
+
+      <section class="settings-section">
+        <h2>🏃 部活・習い事</h2>
+        <p class="settings-hint">屋外での部活・習い事がある曜日を選ぶと、その日は熱中症・雨への注意を強めに表示します。</p>
+        <div class="activity-days">${activityDaysHtml}</div>
       </section>
 
       <section class="settings-section">
@@ -103,11 +163,7 @@ function renderSettingsForm(settings) {
 
 function bindSettingsEvents(settings, onSave) {
   const kidsCountEl = document.getElementById('setting-kids-count');
-  let cityManuallyEdited = false;
-
-  document.getElementById('setting-city').addEventListener('input', () => {
-    cityManuallyEdited = true;
-  });
+  const cityManuallyEdited = bindLocationEvents(settings);
 
   kidsCountEl.addEventListener('change', () => {
     const count = parseInt(kidsCountEl.value, 10);
@@ -124,80 +180,138 @@ function bindSettingsEvents(settings, onSave) {
 
   bindKidInputEvents(settings);
 
-  document.getElementById('gps-btn').addEventListener('click', () => {
-    const btn = document.getElementById('gps-btn');
-    if (!navigator.geolocation) {
-      alert('このブラウザはGeolocationに対応していません。');
-      return;
-    }
-    btn.disabled = true;
-    btn.textContent = '取得中...';
-
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const { latitude: lat, longitude: lon } = pos.coords;
-        try {
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=ja`
-          );
-          if (!res.ok) throw new Error('Nominatim response error');
-          const data = await res.json();
-          const addr = data.address || {};
-          const cityName = addr.city || addr.town || addr.village || addr.county || addr.state || '';
-          if (cityName) {
-            document.getElementById('setting-city').value = cityName;
-          }
-          settings.lat = lat;
-          settings.lon = lon;
-        } catch (e) {
-          console.warn('逆ジオコーディングに失敗しました', e);
-          alert('地名の取得に失敗しました。手動で入力してください。');
-        } finally {
-          btn.disabled = false;
-          btn.textContent = '📍 現在地を取得';
-        }
-      },
-      (err) => {
-        btn.disabled = false;
-        btn.textContent = '📍 現在地を取得';
-        if (err.code === err.PERMISSION_DENIED) {
-          alert('位置情報の取得が拒否されました。ブラウザの設定をご確認ください。');
-        } else if (err.code === err.POSITION_UNAVAILABLE) {
-          alert('位置情報を取得できませんでした。');
-        } else if (err.code === err.TIMEOUT) {
-          alert('位置情報の取得がタイムアウトしました。');
-        } else {
-          alert('位置情報の取得に失敗しました。');
-        }
-      },
-      { timeout: 10000 }
-    );
-  });
-
   document.getElementById('save-settings-btn').addEventListener('click', () => {
-    const city = document.getElementById('setting-city').value.trim();
     const pollen = document.getElementById('setting-pollen').checked;
     const wind = document.getElementById('setting-wind').checked;
+    const activityDays = Array.from(document.querySelectorAll('.activity-day')).map(el => el.checked);
 
-    if (!city) {
-      alert('市区町村名を入力してください。');
+    settings.locations.forEach((loc, i) => {
+      loc.city = (loc.city || '').trim();
+      // Clear GPS coordinates only if the user manually edited this location's
+      // city text. GPS lookup also changes the city text (via reverse
+      // geocoding), so comparing against the old city value alone would
+      // always discard the fresh coordinates.
+      if (cityManuallyEdited.has(i)) {
+        loc.lat = null;
+        loc.lon = null;
+      }
+    });
+
+    if (settings.locations.some(loc => !loc.city)) {
+      alert('すべての地点の市区町村名を入力してください。');
       return;
     }
 
-    // Clear GPS coordinates only if the user manually edited the city text.
-    // GPS lookup also changes the city text (via reverse geocoding), so comparing
-    // against the old city value alone would always discard the fresh coordinates.
-    if (cityManuallyEdited) {
-      settings.lat = null;
-      settings.lon = null;
-    }
-    settings.city = city;
     settings.considerPollen = pollen;
     settings.considerWind = wind;
+    settings.activityDays = activityDays;
 
     saveSettings(settings);
     onSave(settings);
   });
+}
+
+function bindLocationEvents(settings) {
+  const container = document.getElementById('locations-list');
+  const addBtn = document.getElementById('add-location-btn');
+  const cityManuallyEdited = new Set();
+
+  function rerender() {
+    container.innerHTML = settings.locations
+      .map((loc, i) => renderLocationSetting(loc, i, settings.locations.length > 1))
+      .join('');
+    addBtn.disabled = settings.locations.length >= MAX_LOCATIONS;
+  }
+
+  container.addEventListener('input', (e) => {
+    const row = e.target.closest('[data-idx]');
+    if (!row) return;
+    const idx = parseInt(row.dataset.idx, 10);
+    if (e.target.classList.contains('location-label')) {
+      settings.locations[idx].label = e.target.value;
+    } else if (e.target.classList.contains('location-city')) {
+      settings.locations[idx].city = e.target.value;
+      cityManuallyEdited.add(idx);
+    }
+  });
+
+  container.addEventListener('click', (e) => {
+    const removeBtn = e.target.closest('.location-remove');
+    if (removeBtn) {
+      const idx = parseInt(removeBtn.dataset.idx, 10);
+      settings.locations.splice(idx, 1);
+      if (settings.activeLocationIndex >= settings.locations.length) {
+        settings.activeLocationIndex = 0;
+      }
+      cityManuallyEdited.clear();
+      rerender();
+      return;
+    }
+
+    const gpsBtn = e.target.closest('.location-gps');
+    if (gpsBtn) {
+      runLocationGpsLookup(parseInt(gpsBtn.dataset.idx, 10), gpsBtn, settings);
+    }
+  });
+
+  addBtn.addEventListener('click', () => {
+    if (settings.locations.length >= MAX_LOCATIONS) return;
+    settings.locations.push({ label: `地点${settings.locations.length + 1}`, city: '', lat: null, lon: null });
+    rerender();
+  });
+
+  return cityManuallyEdited;
+}
+
+function runLocationGpsLookup(idx, btn, settings) {
+  if (!navigator.geolocation) {
+    alert('このブラウザはGeolocationに対応していません。');
+    return;
+  }
+  btn.disabled = true;
+  btn.textContent = '取得中...';
+
+  navigator.geolocation.getCurrentPosition(
+    async (pos) => {
+      const { latitude: lat, longitude: lon } = pos.coords;
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=ja`
+        );
+        if (!res.ok) throw new Error('Nominatim response error');
+        const data = await res.json();
+        const addr = data.address || {};
+        const cityName = addr.city || addr.town || addr.village || addr.county || addr.state || '';
+        if (cityName) {
+          const cityInput = document.querySelector(`.location-city[data-idx="${idx}"]`);
+          if (cityInput) cityInput.value = cityName;
+          settings.locations[idx].city = cityName;
+        }
+        settings.locations[idx].lat = lat;
+        settings.locations[idx].lon = lon;
+      } catch (e) {
+        console.warn('逆ジオコーディングに失敗しました', e);
+        alert('地名の取得に失敗しました。手動で入力してください。');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '📍 現在地を取得';
+      }
+    },
+    (err) => {
+      btn.disabled = false;
+      btn.textContent = '📍 現在地を取得';
+      if (err.code === err.PERMISSION_DENIED) {
+        alert('位置情報の取得が拒否されました。ブラウザの設定をご確認ください。');
+      } else if (err.code === err.POSITION_UNAVAILABLE) {
+        alert('位置情報を取得できませんでした。');
+      } else if (err.code === err.TIMEOUT) {
+        alert('位置情報の取得がタイムアウトしました。');
+      } else {
+        alert('位置情報の取得に失敗しました。');
+      }
+    },
+    { timeout: 10000 }
+  );
 }
 
 function bindKidInputEvents(settings) {
@@ -219,4 +333,8 @@ function bindKidInputEvents(settings) {
       settings.kids[idx].sensitivity = e.target.value;
     });
   });
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { normalizeSettings, getActiveLocation };
 }

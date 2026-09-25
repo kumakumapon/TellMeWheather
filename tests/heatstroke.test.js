@@ -41,3 +41,15 @@ test('with humidity: high humidity can push a moderate temperature into an alert
 test('estimateWbgt increases with humidity at a fixed temperature', () => {
   assert.ok(estimateWbgt(30, 80) > estimateWbgt(30, 30));
 });
+
+test('activity day boosts the temperature-only threshold', () => {
+  assert.equal(getHeatLevel(23, null, false), null);
+  assert.equal(getHeatLevel(23, null, true).level, 'caution');
+});
+
+test('activity day boosts the humidity-based (WBGT) threshold', () => {
+  const normal = getHeatLevel(27, 60, false);
+  const activity = getHeatLevel(27, 60, true);
+  assert.equal(normal.level, 'warning');
+  assert.equal(activity.level, 'severe');
+});
