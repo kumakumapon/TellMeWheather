@@ -43,42 +43,55 @@ function renderHeatstrokeAlert(weatherData, isActivityDay) {
   const tomorrowIdx = 1;
   const maxTemp = daily.temperature_2m_max[tomorrowIdx];
 
-  // Calculate afternoon peak temp and average humidity from hourly data
+  // Evaluate each afternoon temperature with humidity from the same hour.
   let peakTemp = maxTemp;
   let peakHour = null;
-  let avgHumidity = null;
+  let heat = null;
   if (weatherData.hourly && weatherData.hourly.time) {
     const tomorrowDate = daily.time[tomorrowIdx];
     const afternoonHours = weatherData.hourly.time
       .map((t, i) => ({ t, i }))
-      .filter(({ t }) => t.startsWith(tomorrowDate) && parseInt(t.split('T')[1]) >= 10 && parseInt(t.split('T')[1]) <= 16);
+      .filter(({ t }) => t.startsWith(tomorrowDate) && parseInt(t.split('T')[1]) >= 10 && parseInt(t.split('T')[1]) <= 18);
 
     if (afternoonHours.length > 0) {
-      let maxH = afternoonHours[0];
-      afternoonHours.forEach(h => {
-        if (weatherData.hourly.temperature_2m[h.i] > weatherData.hourly.temperature_2m[maxH.i]) {
-          maxH = h;
+      const severityRank = { caution: 1, warning: 2, severe: 3, danger: 4 };
+      let highestRank = 0;
+      afternoonHours.forEach(({ t, i }) => {
+        const temperature = Number(weatherData.hourly.temperature_2m[i]);
+        if (!Number.isFinite(temperature)) return;
+
+        const humidityValue = weatherData.hourly.relative_humidity_2m?.[i];
+        const numericHumidity = Number(humidityValue);
+        const humidity = humidityValue != null && Number.isFinite(numericHumidity) &&
+          numericHumidity >= 0 && numericHumidity <= 100
+          ? numericHumidity
+          : null;
+        const hourlyHeat = getHeatLevel(temperature, humidity, isActivityDay);
+        const rank = hourlyHeat ? severityRank[hourlyHeat.level] : 0;
+
+        if (rank > highestRank) {
+          highestRank = rank;
+          heat = hourlyHeat;
+          peakTemp = Math.round(temperature);
+          peakHour = parseInt(t.split('T')[1], 10);
         }
       });
-      peakTemp = Math.round(weatherData.hourly.temperature_2m[maxH.i]);
-      peakHour = parseInt(maxH.t.split('T')[1]);
-
-      if (weatherData.hourly.relative_humidity_2m) {
-        avgHumidity = afternoonHours.reduce((s, h) => s + weatherData.hourly.relative_humidity_2m[h.i], 0) / afternoonHours.length;
-      }
+    } else {
+      heat = getHeatLevel(maxTemp, null, isActivityDay);
     }
+  } else {
+    heat = getHeatLevel(maxTemp, null, isActivityDay);
   }
 
-  const heat = getHeatLevel(maxTemp, avgHumidity, isActivityDay);
   if (!heat) return '';
 
   const tips = [];
-  if (maxTemp >= 31) {
+  if (peakTemp >= 31) {
     tips.push('水筒（多めの水分）');
     tips.push('帽子・日傘');
     tips.push('冷却タオル');
     tips.push('塩分タブレット');
-  } else if (maxTemp >= 28) {
+  } else if (peakTemp >= 28) {
     tips.push('水筒');
     tips.push('帽子');
   } else {
