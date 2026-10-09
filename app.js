@@ -87,20 +87,55 @@ function setCachedWeather(key, data) {
   } catch (e) {}
 }
 
+function isValidCoordinate(value) {
+  return value !== null && value !== undefined && String(value).trim() !== '' &&
+    Number.isFinite(Number(value));
+}
+
+function getWeatherCacheKey(location) {
+  const hasCoordinates = isValidCoordinate(location.lat) && isValidCoordinate(location.lon);
+
+  if (hasCoordinates) {
+    return `${CACHE_KEY}:coords:${Number(location.lat).toFixed(4)},${Number(location.lon).toFixed(4)}`;
+  }
+
+  return `${CACHE_KEY}:city:${encodeURIComponent((location.city || '').trim().toLowerCase())}`;
+}
+
+function formatCacheAge(ageMs) {
+  const totalMinutes = Math.floor(Math.max(0, ageMs) / 60000);
+  if (totalMinutes < 60) return `${totalMinutes}分前`;
+  const totalHours = Math.floor(totalMinutes / 60);
+  if (totalHours < 48) {
+    const remainder = totalMinutes % 60;
+    return `${totalHours}時間${remainder ? `${remainder}分` : ''}前`;
+  }
+  const days = Math.floor(totalHours / 24);
+  const hours = totalHours % 24;
+  return `${days}日${hours ? `${hours}時間` : ''}前`;
+}
+
+function formatTimestamp(timestamp) {
+  return new Date(timestamp).toLocaleString('ja-JP', {
+    year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
+}
+
 async function loadDashboard(settings) {
   showLoading(true);
   showError('');
   let weatherData = null;
   const location = getActiveLocation(settings);
   let cityName = location.city;
-  const cacheKey = `${CACHE_KEY}:${settings.activeLocationIndex ?? 0}`;
+  let cacheKey = getWeatherCacheKey(location);
+  let forecastTimestamp = Date.now();
 
   try {
     try {
       let lat = location.lat;
       let lon = location.lon;
 
-      if (!lat || !lon) {
+      if (!isValidCoordinate(lat) || !isValidCoordinate(lon)) {
         const geo = await geocodeCity(location.city);
         lat = geo.lat;
         lon = geo.lon;
@@ -111,28 +146,35 @@ async function loadDashboard(settings) {
         saveSettings(settings);
       }
 
+      cacheKey = getWeatherCacheKey({ ...location, lat, lon });
+
       weatherData = await fetchWeather(lat, lon);
-
-      // Validate API response structure before trusting/caching it
-      const daily = weatherData.daily;
-      if (!daily || !Array.isArray(daily.weather_code) || daily.weather_code.length < 2) {
-        throw new Error('Invalid API response: missing or incomplete daily data');
-      }
-
-      setCachedWeather(cacheKey, { data: weatherData, cityName, ts: Date.now() });
+      weatherData = validateWeatherData(weatherData);
+      forecastTimestamp = Date.now();
+      setCachedWeather(cacheKey, { data: weatherData, cityName, ts: forecastTimestamp });
     } catch (err) {
       console.error('Weather fetch error:', err);
       const cached = getCachedWeather(cacheKey);
       if (cached) {
-        weatherData = cached.data;
-        cityName = cached.cityName;
-        const age = Math.round((Date.now() - cached.ts) / 60000);
-        // Only use cache if less than 24 hours old
-        if (age < 1440) {
-          showError(`⚠️ データ取得に失敗しました。前回のデータ（${age}分前）を表示しています。`);
-        } else {
-          showError(`⚠️ キャッシュが古すぎます（${age}分前）。新しいデータ取得に失敗しました: ${err.message}`);
+        try {
+          weatherData = validateWeatherData(cached.data);
+          forecastTimestamp = Number(cached.ts);
+          if (!Number.isFinite(forecastTimestamp) || forecastTimestamp <= 0 ||
+              !Number.isFinite(new Date(forecastTimestamp).getTime())) {
+            throw new Error('キャッシュの取得日時が不正です');
+          }
+        } catch (cacheError) {
+          showError(`⚠️ データ取得に失敗しました: ${err.message}。保存済みデータも利用できません。`);
           return;
+        }
+
+        cityName = cached.cityName || location.city;
+        const ageMs = Math.max(0, Date.now() - forecastTimestamp);
+        const ageLabel = formatCacheAge(ageMs);
+        if (ageMs < 24 * 60 * 60 * 1000) {
+          showError(`⚠️ データ取得に失敗しました。前回の予報（${ageLabel}）を表示しています。`);
+        } else {
+          showError(`⚠️ 最新予報を取得できませんでした。${formatTimestamp(forecastTimestamp)}取得の古い予報（${ageLabel}）を表示しています。予報が変わっている可能性があります。`);
         }
       } else {
         showError(`⚠️ データ取得に失敗しました: ${err.message}`);
@@ -147,7 +189,7 @@ async function loadDashboard(settings) {
     const wind = daily.wind_speed_10m_max[tomorrowIdx] ?? 0;
     const maxTemp = daily.temperature_2m_max[tomorrowIdx];
     const uvIndex = daily.uv_index_max ? (daily.uv_index_max[tomorrowIdx] ?? 0) : 0;
-    const fetchedAt = Date.now();
+    const fetchedAt = forecastTimestamp;
 
     let hourlyTemps = null;
     if (weatherData.hourly && weatherData.hourly.time) {
@@ -180,7 +222,7 @@ async function loadDashboard(settings) {
     const laundryAdvice = getLaundryAdvice(precip, precipProb, wind, settings, tomorrowMonth, pickupAdvice);
     const shareText = buildShareText(weatherInfo, laundryAdvice, settings.kids, clothesBaseTemp, precipProb, uvIndex, hourlyTemps);
 
-    const quickSummaryHtml = renderQuickSummary(weatherData, settings, shareText, isActivityDay);
+    const quickSummaryHtml = renderQuickSummary(weatherData, settings, shareText, isActivityDay, clothesBaseTemp);
     const { html: weatherHtml } = renderWeatherCard(weatherData, cityName, fetchedAt);
     const hourlyHtml = renderHourlyForecast(weatherData);
     const rainTimelineHtml = renderRainTimeline(weatherData);
@@ -199,7 +241,7 @@ async function loadDashboard(settings) {
 }
 
 
-function renderQuickSummary(weatherData, settings, shareText, isActivityDay) {
+function renderQuickSummary(weatherData, settings, shareText, isActivityDay, clothesBaseTemp) {
   const daily = weatherData.daily;
   const tomorrowIdx = 1;
   const maxTemp = daily.temperature_2m_max[tomorrowIdx];
@@ -211,7 +253,7 @@ function renderQuickSummary(weatherData, settings, shareText, isActivityDay) {
   const weatherInfo = getWeatherInfo(daily.weather_code[tomorrowIdx]);
   const tomorrowMonth = parseLocalDate(daily.time[tomorrowIdx]).getMonth() + 1;
   const laundry = getLaundryAdvice(precip, precipProb, wind, settings, tomorrowMonth);
-  const clothing = getClothingAdvice(maxTemp, 'normal', precipProb, uvIndex);
+  const clothing = getClothingAdvice(clothesBaseTemp, 'normal', precipProb, uvIndex);
   const bestLaundryDay = findBestLaundryDay(daily, settings);
 
   const umbrellaLabel = precipProb >= 60 || precip > 0
