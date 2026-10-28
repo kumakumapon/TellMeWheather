@@ -161,6 +161,28 @@ function getLaundryPickupAdvice(hours) {
   return `${firstRain.h}時から雨の可能性。${firstRain.h - 1}時までに取り込むと安心です`;
 }
 
+// Return the longest 6:00-21:00 block with low hourly rain probability.
+// A 30% cutoff leaves room for forecast uncertainty while avoiding a blanket
+// all-day recommendation when only part of the day is suitable.
+function getLaundryTimeAdvice(hours, threshold = 30) {
+  const candidates = hours.filter(({ h, prob }) => h >= 6 && h < 21 && prob < threshold);
+  if (candidates.length === 0) return null;
+
+  let best = [];
+  let current = [];
+  candidates.forEach(hour => {
+    if (current.length && hour.h !== current[current.length - 1].h + 1) current = [];
+    current.push(hour);
+    if (current.length > best.length) best = current;
+  });
+
+  return {
+    start: best[0].h,
+    end: best[best.length - 1].h + 1,
+    maxProb: Math.max(...best.map(({ prob }) => prob)),
+  };
+}
+
 function renderRainTimeline(data) {
   if (!data.hourly || !data.hourly.time) return '';
 
@@ -182,6 +204,10 @@ function renderRainTimeline(data) {
   const labelsHtml = labelHours.map(h => `<span>${h}</span>`).join('');
 
   const maxProb = Math.max(...hours.map(h => h.prob));
+  const laundryWindow = getLaundryTimeAdvice(hours);
+  const laundryWindowHtml = laundryWindow
+    ? `<p class="laundry-time-advice">🧺 降水確率から見た外干し候補：<strong>${laundryWindow.start}〜${laundryWindow.end}時</strong>（時間帯の降水確率は最大${laundryWindow.maxProb}%）</p>`
+    : '<p class="laundry-time-advice">🧺 6〜21時に外干ししやすい時間帯はありません。部屋干しがおすすめです。</p>';
   let summaryHtml;
   if (maxProb >= 30) {
     const firstRain = hours.find(h => h.prob >= 30);
@@ -194,6 +220,7 @@ function renderRainTimeline(data) {
     <div class="rain-timeline-card card">
       <div class="card-title">🌧 降雨タイムライン（明日）</div>
       <div class="rain-timeline-summary">${escapeHtml(summaryHtml)}</div>
+      ${laundryWindowHtml}
       <div class="rain-bars">${barsHtml}</div>
       <div class="rain-labels">${labelsHtml}</div>
     </div>
@@ -201,5 +228,5 @@ function renderRainTimeline(data) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { buildSummary, getWeatherSeverity, buildHourlyRainProbabilities, getLaundryPickupAdvice };
+  module.exports = { buildSummary, getWeatherSeverity, buildHourlyRainProbabilities, getLaundryPickupAdvice, getLaundryTimeAdvice };
 }

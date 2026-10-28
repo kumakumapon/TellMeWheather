@@ -671,6 +671,17 @@ body {
   white-space: nowrap;
 }
 
+.laundry-time-advice {
+  margin: 8px 0 2px;
+  padding: 9px 11px;
+  border-radius: 8px;
+  background: var(--color-primary-light);
+  color: var(--color-text);
+  font-size: 0.9rem;
+}
+
+.laundry-time-advice strong { color: var(--color-primary); }
+
 /* ===== FOOTER ===== */
 .app-footer {
   text-align: center;

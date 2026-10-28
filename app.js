@@ -125,6 +125,8 @@ async function loadDashboard(settings) {
   showLoading(true);
   showError('');
   let weatherData = null;
+  let weatherFetchedAt = null;
+  let isCachedWeather = false;
   const location = getActiveLocation(settings);
   let cityName = location.city;
   let cacheKey = getWeatherCacheKey(location);
@@ -151,6 +153,7 @@ async function loadDashboard(settings) {
       weatherData = await fetchWeather(lat, lon);
       weatherData = validateWeatherData(weatherData);
       forecastTimestamp = Date.now();
+      weatherFetchedAt = forecastTimestamp;
       setCachedWeather(cacheKey, { data: weatherData, cityName, ts: forecastTimestamp });
     } catch (err) {
       console.error('Weather fetch error:', err);
@@ -168,6 +171,8 @@ async function loadDashboard(settings) {
           return;
         }
 
+        weatherFetchedAt = forecastTimestamp;
+        isCachedWeather = true;
         cityName = cached.cityName || location.city;
         const ageMs = Math.max(0, Date.now() - forecastTimestamp);
         const ageLabel = formatCacheAge(ageMs);
@@ -189,7 +194,6 @@ async function loadDashboard(settings) {
     const wind = daily.wind_speed_10m_max[tomorrowIdx] ?? 0;
     const maxTemp = daily.temperature_2m_max[tomorrowIdx];
     const uvIndex = daily.uv_index_max ? (daily.uv_index_max[tomorrowIdx] ?? 0) : 0;
-    const fetchedAt = forecastTimestamp;
 
     let hourlyTemps = null;
     if (weatherData.hourly && weatherData.hourly.time) {
@@ -223,7 +227,7 @@ async function loadDashboard(settings) {
     const shareText = buildShareText(weatherInfo, laundryAdvice, settings.kids, clothesBaseTemp, precipProb, uvIndex, hourlyTemps);
 
     const quickSummaryHtml = renderQuickSummary(weatherData, settings, shareText, isActivityDay, clothesBaseTemp);
-    const { html: weatherHtml } = renderWeatherCard(weatherData, cityName, fetchedAt);
+    const { html: weatherHtml } = renderWeatherCard(weatherData, cityName, weatherFetchedAt, isCachedWeather);
     const hourlyHtml = renderHourlyForecast(weatherData);
     const rainTimelineHtml = renderRainTimeline(weatherData);
     const laundryHtml = renderLaundryAdvice(precip, precipProb, wind, settings, tomorrowMonth, pickupAdvice);
