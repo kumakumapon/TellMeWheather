@@ -7,6 +7,7 @@ const SHELL_FILES = [
   './style.css',
   './app.js',
   './manifest.json',
+  './components/utils.js',
   './components/weather.js',
   './components/laundry.js',
   './components/clothes.js',

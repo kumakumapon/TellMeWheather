@@ -114,12 +114,58 @@ async function fetchWeather(lat, lon) {
   if (!res.ok) throw new Error('天気データ取得失敗');
   const raw = await res.json();
 
-  // Validate response
-  if (!raw.daily) {
-    throw new Error('Invalid API response: missing daily data');
+  return validateWeatherData({ daily: raw.daily, hourly: raw.hourly });
+}
+
+function isFiniteNumber(value) {
+  return value !== null && value !== '' && Number.isFinite(Number(value));
+}
+
+function hasFiniteNumberSeries(values, length) {
+  return Array.isArray(values) && values.length >= length && values.slice(0, length).every(isFiniteNumber);
+}
+
+// Check the fields used by dashboard renderers before accepting API or cached data.
+// Hourly data is optional: if its core fields are incomplete, daily views can
+// still render and the app falls back to daily values for clothing/heat advice.
+function validateWeatherData(data) {
+  const daily = data && data.daily;
+  const requiredDailySeries = [
+    'weather_code',
+    'temperature_2m_max',
+    'temperature_2m_min',
+    'precipitation_sum',
+    'precipitation_probability_max',
+    'wind_speed_10m_max',
+  ];
+
+  if (!daily || !Array.isArray(daily.time) || daily.time.length < 2 ||
+      !daily.time.every(value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) ||
+      !requiredDailySeries.every(key => hasFiniteNumberSeries(daily[key], daily.time.length))) {
+    throw new Error('天気データの形式が不完全です');
   }
 
-  return { daily: raw.daily, hourly: raw.hourly };
+  const safeDaily = { ...daily };
+  if (!hasFiniteNumberSeries(safeDaily.uv_index_max, daily.time.length)) {
+    delete safeDaily.uv_index_max;
+  }
+
+  let safeHourly = data.hourly;
+  if (!safeHourly || !Array.isArray(safeHourly.time) || safeHourly.time.length === 0 ||
+      !safeHourly.time.every(value => typeof value === 'string') ||
+      !hasFiniteNumberSeries(safeHourly.temperature_2m, safeHourly.time.length) ||
+      !hasFiniteNumberSeries(safeHourly.weather_code, safeHourly.time.length) ||
+      !Array.isArray(safeHourly.precipitation_probability) ||
+      safeHourly.precipitation_probability.length < safeHourly.time.length) {
+    safeHourly = null;
+  } else {
+    safeHourly = { ...safeHourly };
+    if (!hasFiniteNumberSeries(safeHourly.relative_humidity_2m, safeHourly.time.length)) {
+      delete safeHourly.relative_humidity_2m;
+    }
+  }
+
+  return { daily: safeDaily, hourly: safeHourly };
 }
 
 function renderWeatherCard(data, cityName, lastUpdated, isCached = false) {
@@ -216,5 +262,5 @@ function renderWeekForecast(data, settings) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { getWeatherInfo, parseLocalDate };
+  module.exports = { getWeatherInfo, parseLocalDate, validateWeatherData };
 }
