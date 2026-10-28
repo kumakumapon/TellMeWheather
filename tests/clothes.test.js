@@ -29,3 +29,14 @@ test('large morning/afternoon temperature gap adds a note', () => {
   const result = getClothingAdvice(20, 'normal', 0, 0, { morning: 10, afternoon: 20 });
   assert.ok(result.notes.length > 0);
 });
+
+test('rain amount still triggers bike rainwear with low precipitation probability', () => {
+  const result = getClothingAdvice(20, 'normal', 10, 0, null, {commuteMode:'bike', precipitation:0.5});
+  assert.ok(result.items.includes('レインウェア'));
+});
+
+test('hot daily-only forecasts include water and towel', () => {
+  const result = getClothingAdvice(32, 'normal', 0, 0);
+  assert.ok(result.items.includes('水筒'));
+  assert.ok(result.items.includes('タオル'));
+});

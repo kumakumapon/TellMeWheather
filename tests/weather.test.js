@@ -23,3 +23,22 @@ test('parseLocalDate builds a date from local components, not UTC', () => {
   assert.equal(date.getMonth(), 8); // 0-based: September
   assert.equal(date.getDate(), 21);
 });
+
+const {validateWeatherData, alignWeatherToToday} = require('../components/weather');
+const fixture = require('./fixtures/forecast');
+test('cache rebases today/tomorrow after midnight in the forecast timezone', () => {
+  const data = fixture(); data.timezone = 'Asia/Tokyo';
+  const aligned = alignWeatherToToday(data, Date.parse('2026-10-28T16:00:00Z'));
+  assert.equal(aligned.daily.time[0], '2026-10-29');
+  assert.equal(aligned.daily.time[1], '2026-10-30');
+  assert.equal(data.daily.time[0], '2026-10-28');
+});
+test('expired cache without tomorrow is rejected', () => {
+  assert.throws(() => alignWeatherToToday(fixture(), Date.parse('2027-01-01')), /今日・明日/);
+});
+test('incomplete daily data is rejected and hourly data is optional', () => {
+  const data = fixture(); delete data.daily.temperature_2m_max;
+  assert.throws(() => validateWeatherData(data), /不完全/);
+  const complete = fixture(); complete.hourly = {};
+  assert.equal(validateWeatherData(complete).hourly, null);
+});

@@ -33,7 +33,7 @@ function getClothingAdvice(maxTemp, tempSensitivity, precipProb, uvIndex, hourly
   }
 
   // 降水確率 30% 以上なら傘を追加
-  if ((precipProb ?? 0) >= 30) {
+  if ((precipProb ?? 0) >= 30 || (preferences.precipitation ?? 0) > 0) {
     items.push(preferences.commuteMode === 'bike' ? 'レインウェア' : '折り畳み傘');
   }
   if ((precipProb ?? 0) >= 50) {
@@ -47,7 +47,7 @@ function getClothingAdvice(maxTemp, tempSensitivity, precipProb, uvIndex, hourly
   if ((uvIndex ?? 0) >= 3) {
     items.push('日焼け止め');
   }
-  if (hourlyTemps && hourlyTemps.afternoon >= 30) {
+  if ((hourlyTemps?.afternoon ?? maxTemp) >= 30) {
     items.push('水筒', 'タオル');
   }
 

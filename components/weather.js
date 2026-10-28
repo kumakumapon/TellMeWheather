@@ -114,7 +114,7 @@ async function fetchWeather(lat, lon) {
   if (!res.ok) throw new Error('天気データ取得失敗');
   const raw = await res.json();
 
-  return validateWeatherData({ daily: raw.daily, hourly: raw.hourly });
+  return validateWeatherData({ daily: raw.daily, hourly: raw.hourly, timezone: raw.timezone });
 }
 
 function isFiniteNumber(value) {
@@ -146,6 +146,7 @@ function validateWeatherData(data) {
   }
 
   const safeDaily = { ...daily };
+  requiredDailySeries.forEach(key => { safeDaily[key] = daily[key].map(Number); });
   if (!hasFiniteNumberSeries(safeDaily.uv_index_max, daily.time.length)) {
     delete safeDaily.uv_index_max;
   }
@@ -160,12 +161,30 @@ function validateWeatherData(data) {
     safeHourly = null;
   } else {
     safeHourly = { ...safeHourly };
+    safeHourly.temperature_2m = safeHourly.temperature_2m.map(Number);
+    safeHourly.weather_code = safeHourly.weather_code.map(Number);
+    safeHourly.precipitation_probability = safeHourly.precipitation_probability.map(value =>
+      value != null && value !== '' && Number.isFinite(Number(value)) && Number(value) >= 0 && Number(value) <= 100 ? Number(value) : null);
     if (!hasFiniteNumberSeries(safeHourly.relative_humidity_2m, safeHourly.time.length)) {
       delete safeHourly.relative_humidity_2m;
     }
   }
 
-  return { daily: safeDaily, hourly: safeHourly };
+  return { daily: safeDaily, hourly: safeHourly, timezone: data.timezone };
+}
+
+// A cached forecast may have been fetched yesterday. Rebase its daily indices
+// before any renderer interprets index 0/1 as today/tomorrow.
+function alignWeatherToToday(data, now = Date.now()) {
+  const options = { year: 'numeric', month: '2-digit', day: '2-digit' };
+  if (data.timezone) options.timeZone = data.timezone;
+  const parts = new Intl.DateTimeFormat('en-CA', options).formatToParts(new Date(now));
+  const value = type => parts.find(part => part.type === type).value;
+  const today = `${value('year')}-${value('month')}-${value('day')}`;
+  const start = data.daily.time.indexOf(today);
+  if (start < 0 || start + 1 >= data.daily.time.length) throw new Error('保存済み予報に今日・明日のデータがありません');
+  const daily = Object.fromEntries(Object.entries(data.daily).map(([key, values]) => [key, Array.isArray(values) ? values.slice(start) : values]));
+  return { ...data, daily };
 }
 
 function renderWeatherCard(data, cityName, lastUpdated, isCached = false) {
@@ -262,5 +281,5 @@ function renderWeekForecast(data, settings) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { getWeatherInfo, parseLocalDate, validateWeatherData };
+  module.exports = { getWeatherInfo, parseLocalDate, validateWeatherData, alignWeatherToToday };
 }

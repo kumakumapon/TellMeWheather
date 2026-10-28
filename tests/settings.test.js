@@ -48,3 +48,14 @@ test('getActiveLocation falls back to the first location when the index is inval
   const settings = { locations: [{ label: '自宅', city: '東京' }], activeLocationIndex: 3 };
   assert.equal(getActiveLocation(settings).label, '自宅');
 });
+
+test('saved household preferences normalize with backwards-compatible defaults', () => {
+  const defaults = normalizeSettings({});
+  assert.equal(defaults.wearsUniform, false);
+  assert.equal(defaults.commuteMode, 'walk');
+  assert.equal(defaults.laundryPickupHour, '');
+  const saved = normalizeSettings({wearsUniform: true, commuteMode: 'bike', laundryPickupHour: 14});
+  assert.equal(saved.wearsUniform, true);
+  assert.equal(saved.commuteMode, 'bike');
+  assert.equal(saved.laundryPickupHour, '14');
+});
