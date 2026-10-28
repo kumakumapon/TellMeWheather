@@ -221,18 +221,18 @@ async function loadDashboard(settings) {
     const weatherInfo = getWeatherInfo(daily.weather_code[tomorrowIdx]);
     const tomorrowMonth = tomorrowDate.getMonth() + 1;
     const pickupAdvice = weatherData.hourly
-      ? getLaundryPickupAdvice(buildHourlyRainProbabilities(weatherData))
+      ? getLaundryPickupAdvice(buildHourlyRainProbabilities(weatherData), settings.laundryPickupHour)
       : null;
     const laundryAdvice = getLaundryAdvice(precip, precipProb, wind, settings, tomorrowMonth, pickupAdvice);
-    const shareText = buildShareText(weatherInfo, laundryAdvice, settings.kids, clothesBaseTemp, precipProb, uvIndex, hourlyTemps);
+    const shareText = buildShareText(weatherInfo, laundryAdvice, settings.kids, clothesBaseTemp, precipProb, uvIndex, hourlyTemps, settings, wind);
 
     const quickSummaryHtml = renderQuickSummary(weatherData, settings, shareText, isActivityDay, clothesBaseTemp);
     const { html: weatherHtml } = renderWeatherCard(weatherData, cityName, weatherFetchedAt, isCachedWeather);
     const hourlyHtml = renderHourlyForecast(weatherData);
-    const rainTimelineHtml = renderRainTimeline(weatherData);
+    const rainTimelineHtml = renderRainTimeline(weatherData, settings);
     const laundryHtml = renderLaundryAdvice(precip, precipProb, wind, settings, tomorrowMonth, pickupAdvice);
     const heatstrokeHtml = renderHeatstrokeAlert(weatherData, isActivityDay);
-    const clothesHtml = renderKidsClothes(settings.kids, clothesBaseTemp, precipProb, uvIndex, hourlyTemps);
+    const clothesHtml = renderKidsClothes(settings.kids, clothesBaseTemp, precipProb, uvIndex, hourlyTemps, { ...settings, windSpeed: wind });
     const weekHtml = renderWeekForecast(weatherData, settings);
 
     document.getElementById('dashboard-content').innerHTML =
@@ -257,13 +257,13 @@ function renderQuickSummary(weatherData, settings, shareText, isActivityDay, clo
   const weatherInfo = getWeatherInfo(daily.weather_code[tomorrowIdx]);
   const tomorrowMonth = parseLocalDate(daily.time[tomorrowIdx]).getMonth() + 1;
   const laundry = getLaundryAdvice(precip, precipProb, wind, settings, tomorrowMonth);
-  const clothing = getClothingAdvice(clothesBaseTemp, 'normal', precipProb, uvIndex);
+  const clothing = getClothingAdvice(clothesBaseTemp, 'normal', precipProb, uvIndex, null, { ...settings, windSpeed: wind });
   const bestLaundryDay = findBestLaundryDay(daily, settings);
 
   const umbrellaLabel = precipProb >= 60 || precip > 0
-    ? '傘を忘れずに'
+    ? (settings.commuteMode === 'bike' ? '自転車用レインウェアを忘れずに' : '傘を忘れずに')
     : precipProb >= 30
-      ? '折り畳み傘が安心'
+      ? (settings.commuteMode === 'bike' ? '自転車用レインウェアが安心' : '折り畳み傘が安心')
       : '傘は不要そう';
   const tempLabel = `${Math.round(minTemp)}℃〜${Math.round(maxTemp)}℃`;
   const chips = [
@@ -319,9 +319,9 @@ function renderQuickSummary(weatherData, settings, shareText, isActivityDay, clo
   `;
 }
 
-function buildShareText(weatherInfo, laundryAdvice, kids, clothesBaseTemp, precipProb, uvIndex, hourlyTemps) {
+function buildShareText(weatherInfo, laundryAdvice, kids, clothesBaseTemp, precipProb, uvIndex, hourlyTemps, settings = {}, windSpeed = 0) {
   const kidsParts = (kids || []).map(kid => {
-    const advice = getClothingAdvice(clothesBaseTemp, kid.sensitivity, precipProb, uvIndex, hourlyTemps);
+    const advice = getClothingAdvice(clothesBaseTemp, kid.sensitivity, precipProb, uvIndex, hourlyTemps, { ...settings, windSpeed });
     return `${kid.name || '子ども'}は${advice.outfit}`;
   });
   const parts = [`明日は${weatherInfo.label}`, laundryAdvice.label, ...kidsParts];

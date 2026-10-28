@@ -901,6 +901,12 @@ html.dark-mode .quick-summary {
   color: var(--color-text);
 }
 
+.hourly-slot-delta {
+  font-size: 0.65rem;
+  color: var(--color-text-light);
+  white-space: nowrap;
+}
+
 .hourly-slot-rain {
   font-size: 0.68rem;
   color: var(--color-text-light);

@@ -75,6 +75,7 @@ function renderHourlyForecast(data) {
   if (!data.hourly || !data.hourly.time) return '';
 
   const tomorrowDate = data.daily.time[1];
+  const todayDate = data.daily.time[0];
 
   const TIME_SLOTS = [
     { name: '早朝', from: 5, to: 7 },
@@ -101,6 +102,16 @@ function renderHourlyForecast(data) {
     const avgTemp = Math.round(
       indices.reduce((s, { i }) => s + hourly.temperature_2m[i], 0) / indices.length
     );
+    const todayTemps = hourly.time
+      .map((t, i) => ({ t, i }))
+      .filter(({ t }) => {
+        if (!t.startsWith(todayDate)) return false;
+        const h = parseInt(t.split('T')[1]);
+        return h >= slot.from && h < slot.to;
+      });
+    const todayAvgTemp = todayTemps.length
+      ? Math.round(todayTemps.reduce((sum, { i }) => sum + hourly.temperature_2m[i], 0) / todayTemps.length)
+      : null;
     const maxPrecipProb = Math.max(...indices.map(({ i }) => hourly.precipitation_probability[i] ?? 0));
 
     const codes = indices.map(({ i }) => hourly.weather_code[i]);
@@ -110,7 +121,7 @@ function renderHourlyForecast(data) {
     );
     const info = getWeatherInfo(worstCode);
 
-    return { name: slot.name, avgTemp, maxPrecipProb, code: worstCode, info };
+    return { name: slot.name, avgTemp, todayAvgTemp, maxPrecipProb, code: worstCode, info };
   }).filter(Boolean);
 
   const summary = buildSummary(slots);
@@ -120,6 +131,7 @@ function renderHourlyForecast(data) {
       <div class="hourly-slot-name">${slot.name}</div>
       <div class="hourly-slot-emoji">${renderWeatherVisual(slot.code, slot.info, 'weather-visual-hourly')}</div>
       <div class="hourly-slot-temp">${slot.avgTemp}℃</div>
+      ${slot.todayAvgTemp === null ? '' : `<div class="hourly-slot-delta">今日比 ${slot.avgTemp - slot.todayAvgTemp > 0 ? '+' : ''}${slot.avgTemp - slot.todayAvgTemp}℃</div>`}
       <div class="hourly-slot-rain">☔${slot.maxPrecipProb}%</div>
     </div>
   `).join('');
@@ -155,17 +167,25 @@ function buildHourlyRainProbabilities(data) {
 // If rain becomes likely (>=50%) sometime after 9am, suggest bringing
 // laundry in an hour before it starts. Ignores earlier hours since laundry
 // wouldn't realistically be hung out before then anyway.
-function getLaundryPickupAdvice(hours) {
+function getLaundryPickupAdvice(hours, latestPickupHour = null) {
   const firstRain = hours.find(({ h, prob }) => h >= 9 && prob >= 50);
   if (!firstRain) return null;
-  return `${firstRain.h}時から雨の可能性。${firstRain.h - 1}時までに取り込むと安心です`;
+  const configuredHour = Number(latestPickupHour);
+  const hasConfiguredHour = Number.isInteger(configuredHour) && configuredHour >= 6 && configuredHour <= 21;
+  const pickupBy = hasConfiguredHour ? Math.min(firstRain.h - 1, configuredHour) : firstRain.h - 1;
+  const reason = hasConfiguredHour && pickupBy === configuredHour && configuredHour < firstRain.h - 1
+    ? `設定した取り込み可能時刻に合わせて、${pickupBy}時までに`
+    : `${pickupBy}時までに`;
+  return `${firstRain.h}時から雨の可能性。${reason}取り込むと安心です`;
 }
 
 // Return the longest 6:00-21:00 block with low hourly rain probability.
 // A 30% cutoff leaves room for forecast uncertainty while avoiding a blanket
 // all-day recommendation when only part of the day is suitable.
-function getLaundryTimeAdvice(hours, threshold = 30) {
-  const candidates = hours.filter(({ h, prob }) => h >= 6 && h < 21 && prob < threshold);
+function getLaundryTimeAdvice(hours, threshold = 30, latestPickupHour = null) {
+  const pickupHour = Number(latestPickupHour);
+  const pickupLimit = Number.isInteger(pickupHour) && pickupHour >= 6 && pickupHour <= 21 ? pickupHour : 21;
+  const candidates = hours.filter(({ h, prob }) => h >= 6 && h < pickupLimit && prob < threshold);
   if (candidates.length === 0) return null;
 
   let best = [];
@@ -183,7 +203,7 @@ function getLaundryTimeAdvice(hours, threshold = 30) {
   };
 }
 
-function renderRainTimeline(data) {
+function renderRainTimeline(data, settings = {}) {
   if (!data.hourly || !data.hourly.time) return '';
 
   const hours = buildHourlyRainProbabilities(data);
@@ -204,9 +224,10 @@ function renderRainTimeline(data) {
   const labelsHtml = labelHours.map(h => `<span>${h}</span>`).join('');
 
   const maxProb = Math.max(...hours.map(h => h.prob));
-  const laundryWindow = getLaundryTimeAdvice(hours);
+  const laundryWindow = getLaundryTimeAdvice(hours, 30, settings.laundryPickupHour);
+  const pickupNote = settings.laundryPickupHour ? `（${settings.laundryPickupHour}時までに取り込む想定）` : '';
   const laundryWindowHtml = laundryWindow
-    ? `<p class="laundry-time-advice">🧺 降水確率から見た外干し候補：<strong>${laundryWindow.start}〜${laundryWindow.end}時</strong>（時間帯の降水確率は最大${laundryWindow.maxProb}%）</p>`
+    ? `<p class="laundry-time-advice">🧺 降水確率から見た外干し候補${pickupNote}：<strong>${laundryWindow.start}〜${laundryWindow.end}時</strong>（時間帯の降水確率は最大${laundryWindow.maxProb}%）</p>`
     : '<p class="laundry-time-advice">🧺 6〜21時に外干ししやすい時間帯はありません。部屋干しがおすすめです。</p>';
   let summaryHtml;
   if (maxProb >= 30) {
