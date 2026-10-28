@@ -10,6 +10,9 @@ const DEFAULT_SETTINGS = {
   ],
   considerPollen: false,
   considerWind: true,
+  wearsUniform: false,
+  commuteMode: 'walk',
+  laundryPickupHour: '',
   activityDays: [false, false, false, false, false, false, false], // Sun..Sat
 };
 
@@ -33,6 +36,13 @@ function normalizeSettings(parsed) {
   }
   if (!Array.isArray(merged.activityDays) || merged.activityDays.length !== 7) {
     merged.activityDays = DEFAULT_SETTINGS.activityDays.slice();
+  }
+  merged.wearsUniform = Boolean(merged.wearsUniform);
+  if (!['walk', 'bike'].includes(merged.commuteMode)) merged.commuteMode = 'walk';
+  if (![ '', '12', '14', '16', '18', '20' ].includes(String(merged.laundryPickupHour ?? ''))) {
+    merged.laundryPickupHour = '';
+  } else {
+    merged.laundryPickupHour = String(merged.laundryPickupHour ?? '');
   }
 
   delete merged.city;
@@ -145,6 +155,27 @@ function renderSettingsForm(settings) {
       </section>
 
       <section class="settings-section">
+        <h2>🏫 通学・生活スタイル</h2>
+        <label class="checkbox-label">
+          <input type="checkbox" id="setting-uniform" ${settings.wearsUniform ? 'checked' : ''}>
+          制服で通学する
+        </label>
+        <label>通学手段
+          <select id="setting-commute">
+            <option value="walk" ${settings.commuteMode === 'walk' ? 'selected' : ''}>徒歩</option>
+            <option value="bike" ${settings.commuteMode === 'bike' ? 'selected' : ''}>自転車</option>
+          </select>
+        </label>
+        <label>洗濯物を取り込める最終時刻
+          <select id="setting-laundry-pickup">
+            <option value="" ${settings.laundryPickupHour === '' ? 'selected' : ''}>指定しない</option>
+            ${[12, 14, 16, 18, 20].map(hour => `<option value="${hour}" ${settings.laundryPickupHour === String(hour) ? 'selected' : ''}>${hour}:00</option>`).join('')}
+          </select>
+        </label>
+        <p class="settings-hint">通学時の服装・雨具と、外干しの候補時間に反映します。</p>
+      </section>
+
+      <section class="settings-section">
         <h2>🧺 洗濯設定</h2>
         <label class="checkbox-label">
           <input type="checkbox" id="setting-pollen" ${settings.considerPollen ? 'checked' : ''}>
@@ -183,6 +214,9 @@ function bindSettingsEvents(settings, onSave) {
   document.getElementById('save-settings-btn').addEventListener('click', () => {
     const pollen = document.getElementById('setting-pollen').checked;
     const wind = document.getElementById('setting-wind').checked;
+    const wearsUniform = document.getElementById('setting-uniform').checked;
+    const commuteMode = document.getElementById('setting-commute').value;
+    const laundryPickupHour = document.getElementById('setting-laundry-pickup').value;
     const activityDays = Array.from(document.querySelectorAll('.activity-day')).map(el => el.checked);
 
     settings.locations.forEach((loc, i) => {
@@ -204,6 +238,9 @@ function bindSettingsEvents(settings, onSave) {
 
     settings.considerPollen = pollen;
     settings.considerWind = wind;
+    settings.wearsUniform = wearsUniform;
+    settings.commuteMode = commuteMode;
+    settings.laundryPickupHour = laundryPickupHour;
     settings.activityDays = activityDays;
 
     saveSettings(settings);

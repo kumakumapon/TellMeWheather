@@ -1,7 +1,7 @@
 // Clothes advice component
 
 // tempSensitivity: 'cold' | 'normal' | 'hot'
-function getClothingAdvice(maxTemp, tempSensitivity, precipProb, uvIndex, hourlyTemps) {
+function getClothingAdvice(maxTemp, tempSensitivity, precipProb, uvIndex, hourlyTemps, preferences = {}) {
   const offset = tempSensitivity === 'cold' ? -2 : tempSensitivity === 'hot' ? +2 : 0;
   const adjusted = maxTemp + offset;
 
@@ -25,9 +25,19 @@ function getClothingAdvice(maxTemp, tempSensitivity, precipProb, uvIndex, hourly
     items = [];
   }
 
+  if (preferences.wearsUniform) {
+    if (adjusted <= 10) outfit = '制服＋防寒インナー＋コート';
+    else if (adjusted <= 15) outfit = '制服＋上着';
+    else if (adjusted <= 24) outfit = '制服（気温に合わせて羽織りを）';
+    else outfit = '制服（暑さ対策を）';
+  }
+
   // 降水確率 30% 以上なら傘を追加
   if ((precipProb ?? 0) >= 30) {
-    items.push('折り畳み傘');
+    items.push(preferences.commuteMode === 'bike' ? 'レインウェア' : '折り畳み傘');
+  }
+  if ((precipProb ?? 0) >= 50) {
+    items.push('タオル');
   }
 
   // UV 指数に応じて日焼け対策グッズを追加
@@ -36,6 +46,9 @@ function getClothingAdvice(maxTemp, tempSensitivity, precipProb, uvIndex, hourly
   }
   if ((uvIndex ?? 0) >= 3) {
     items.push('日焼け止め');
+  }
+  if (hourlyTemps && hourlyTemps.afternoon >= 30) {
+    items.push('水筒', 'タオル');
   }
 
   const notes = [];
@@ -53,7 +66,10 @@ function getClothingAdvice(maxTemp, tempSensitivity, precipProb, uvIndex, hourly
       notes.push('午後は猛暑です。水筒・帽子を忘れずに');
     }
   }
-  return { outfit, items, notes };
+  if (preferences.commuteMode === 'bike' && (preferences.windSpeed ?? 0) >= 30) {
+    notes.push('風が強めです。自転車では横風に注意してください');
+  }
+  return { outfit, items: [...new Set(items)], notes };
 }
 
 function gradeLabel(grade) {
@@ -69,7 +85,7 @@ function sensitivityLabel(s) {
   return s === 'cold' ? '寒がり' : s === 'hot' ? '暑がり' : '普通';
 }
 
-function renderKidsClothes(kids, maxTemp, precipProb, uvIndex, hourlyTemps) {
+function renderKidsClothes(kids, maxTemp, precipProb, uvIndex, hourlyTemps, preferences = {}) {
   if (!kids || kids.length === 0) {
     return `
       <div class="clothes-card card">
@@ -81,7 +97,7 @@ function renderKidsClothes(kids, maxTemp, precipProb, uvIndex, hourlyTemps) {
 
   const cards = kids.map(kid => {
     const name = escapeHtml(kid.name || '子ども');
-    const advice = getClothingAdvice(maxTemp, kid.sensitivity, precipProb, uvIndex, hourlyTemps);
+    const advice = getClothingAdvice(maxTemp, kid.sensitivity, precipProb, uvIndex, hourlyTemps, preferences);
     const { outfit, items } = advice;
     const itemsHtml = items.length > 0
       ? `<div class="kid-items">持ち物：${items.join('、')}</div>`
