@@ -13,11 +13,13 @@ function getLaundryAdvice(precip, precipProb, wind, settings, month, pickupAdvic
   if (precip > 0 || precipProb >= 50) {
     status = 'ng';
     label = '部屋干し推奨';
-    comments.push('雨が予想されます');
+    comments.push(precip > 0
+      ? `降水量${precip}mmの予報です`
+      : `降水確率${Math.round(precipProb)}%のため、雨に備えてください`);
   } else if (considerWind && wind >= STRONG_WIND_THRESHOLD_KMH) {
     status = 'caution';
     label = '外干し注意';
-    comments.push('強風注意（洗濯物が飛ばされる恐れ）');
+    comments.push(`最大風速${Math.round(wind)}km/hの予報です（洗濯物が飛ばされる恐れ）`);
   }
 
   if (considerPollen && status !== 'ng') {

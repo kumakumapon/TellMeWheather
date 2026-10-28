@@ -122,7 +122,7 @@ async function fetchWeather(lat, lon) {
   return { daily: raw.daily, hourly: raw.hourly };
 }
 
-function renderWeatherCard(data, cityName, lastUpdated) {
+function renderWeatherCard(data, cityName, lastUpdated, isCached = false) {
   const daily = data.daily;
   const DAYS = ['日','月','火','水','木','金','土'];
 
@@ -159,7 +159,7 @@ function renderWeatherCard(data, cityName, lastUpdated) {
   }
 
   const updatedStr = lastUpdated
-    ? `<span class="last-updated">🕐 ${new Date(lastUpdated).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}更新</span>`
+    ? `<span class="last-updated">🕐 ${isCached ? '前回取得' : '予報取得'}：${new Date(lastUpdated).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}${isCached ? '（キャッシュ）' : ''}</span>`
     : '';
 
   // index 0 = today, index 1 = tomorrow
