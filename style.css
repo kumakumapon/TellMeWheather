@@ -1091,3 +1091,37 @@ html.dark-mode .quick-summary {
 .theme-toggle:hover {
   background: rgba(255,255,255,0.25);
 }
+
+/* Key decisions fit first; native details keep the full forecast available. */
+.overview-heading { display:flex; justify-content:space-between; gap:8px; align-items:flex-start; }
+.overview-heading h2 { font-size:1.12rem; line-height:1.4; }
+.overview .quick-kicker { letter-spacing:0; margin:0 0 3px; }
+.overview .quick-actions { flex-direction:row; }
+.overview .quick-actions button { min-height:40px; padding:6px 10px; }
+.overview-range { margin:6px 0 9px; font-weight:700; font-size:1.1rem; }
+.overview-range span { font-size:.75rem; font-weight:400; margin-left:6px; }
+.overview-periods { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
+.overview-periods>div { background:var(--color-primary-light); border-radius:8px; padding:6px; text-align:center; display:grid; grid-template-columns:1fr 1fr; align-items:center; font-size:.8rem; }
+.overview-periods small { font-size:.7rem; grid-column:1 / -1; }
+.overview-section { padding-top:8px; margin-top:8px; border-top:1px solid var(--color-border); }
+.overview-section h3 { font-size:.82rem; margin-bottom:3px; }
+.overview-section p,.overview-kid { font-size:.8rem; line-height:1.45; }
+.overview-kid { display:grid; grid-template-columns:minmax(50px,6em) minmax(0,1fr); gap:10px; }
+.overview-kid strong { max-width:8em; overflow-wrap:anywhere; }
+.overview-updated { font-size:.67rem; color:var(--color-text-light); margin-top:8px; }
+.overview-alert { background:var(--color-primary-light); padding:7px; border-left:3px solid var(--color-ng); font-size:.8rem; margin-top:8px; }
+.overview-activity { font-size:.75rem; margin-top:6px; }
+.dashboard-detail { border:1px solid var(--color-border); background:var(--color-white); border-radius:10px; margin-bottom:8px; }
+.dashboard-detail>summary { cursor:pointer; padding:12px; font-size:.85rem; color:var(--color-primary-dark); font-weight:600; min-height:44px; }
+.detail-content { padding:0 8px 2px; }
+.dashboard-detail .card { box-shadow:none; }
+@media(max-width:480px) {
+  .app-header { padding:7px 12px; }
+  .app-title { font-size:1.12rem; }
+  .app-subtitle { display:none; }
+  .nav-btn { padding:10px 8px; font-size:.82rem; }
+  .app-main { padding:8px; }
+  .overview { padding:10px; }
+  .location-pill { min-height:36px; }
+  .location-switcher { margin-bottom:6px; }
+}

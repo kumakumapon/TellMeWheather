@@ -160,7 +160,7 @@ async function loadDashboard(settings) {
       const cached = getCachedWeather(cacheKey);
       if (cached) {
         try {
-          weatherData = validateWeatherData(cached.data);
+          weatherData = alignWeatherToToday(validateWeatherData(cached.data));
           forecastTimestamp = Number(cached.ts);
           if (!Number.isFinite(forecastTimestamp) || forecastTimestamp <= 0 ||
               !Number.isFinite(new Date(forecastTimestamp).getTime())) {
@@ -226,17 +226,22 @@ async function loadDashboard(settings) {
     const laundryAdvice = getLaundryAdvice(precip, precipProb, wind, settings, tomorrowMonth, pickupAdvice);
     const shareText = buildShareText(weatherInfo, laundryAdvice, settings.kids, clothesBaseTemp, precipProb, uvIndex, hourlyTemps, settings, wind);
 
-    const quickSummaryHtml = renderQuickSummary(weatherData, settings, shareText, isActivityDay, clothesBaseTemp);
+    const quickSummaryHtml = renderQuickSummary(weatherData, settings, shareText, isActivityDay, clothesBaseTemp, hourlyTemps, weatherFetchedAt, isCachedWeather);
     const { html: weatherHtml } = renderWeatherCard(weatherData, cityName, weatherFetchedAt, isCachedWeather);
     const hourlyHtml = renderHourlyForecast(weatherData);
     const rainTimelineHtml = renderRainTimeline(weatherData, settings);
     const laundryHtml = renderLaundryAdvice(precip, precipProb, wind, settings, tomorrowMonth, pickupAdvice);
     const heatstrokeHtml = renderHeatstrokeAlert(weatherData, isActivityDay);
-    const clothesHtml = renderKidsClothes(settings.kids, clothesBaseTemp, precipProb, uvIndex, hourlyTemps, { ...settings, windSpeed: wind });
+    const clothesHtml = renderKidsClothes(settings.kids, clothesBaseTemp, precipProb, uvIndex, hourlyTemps, { ...settings, windSpeed: wind, precipitation: precip });
     const weekHtml = renderWeekForecast(weatherData, settings);
 
     document.getElementById('dashboard-content').innerHTML =
-      quickSummaryHtml + weatherHtml + hourlyHtml + rainTimelineHtml + laundryHtml + heatstrokeHtml + clothesHtml + weekHtml;
+      quickSummaryHtml +
+      renderDashboardDetail('今日・明日の天気', weatherHtml) +
+      renderDashboardDetail('時間帯別予報・雨の見通し', hourlyHtml + rainTimelineHtml) +
+      renderDashboardDetail('洗濯の判定理由', laundryHtml) +
+      renderDashboardDetail('服装・熱中症の詳しいアドバイス', clothesHtml + heatstrokeHtml) +
+      renderDashboardDetail('週間予報', weekHtml);
 
     lastRefreshTime = Date.now();
   } finally {
@@ -245,78 +250,63 @@ async function loadDashboard(settings) {
 }
 
 
-function renderQuickSummary(weatherData, settings, shareText, isActivityDay, clothesBaseTemp) {
-  const daily = weatherData.daily;
-  const tomorrowIdx = 1;
-  const maxTemp = daily.temperature_2m_max[tomorrowIdx];
-  const minTemp = daily.temperature_2m_min[tomorrowIdx];
-  const precip = daily.precipitation_sum[tomorrowIdx] ?? 0;
-  const precipProb = daily.precipitation_probability_max[tomorrowIdx] ?? 0;
-  const wind = daily.wind_speed_10m_max[tomorrowIdx] ?? 0;
-  const uvIndex = daily.uv_index_max ? (daily.uv_index_max[tomorrowIdx] ?? 0) : 0;
-  const weatherInfo = getWeatherInfo(daily.weather_code[tomorrowIdx]);
-  const tomorrowMonth = parseLocalDate(daily.time[tomorrowIdx]).getMonth() + 1;
-  const laundry = getLaundryAdvice(precip, precipProb, wind, settings, tomorrowMonth);
-  const clothing = getClothingAdvice(clothesBaseTemp, 'normal', precipProb, uvIndex, null, { ...settings, windSpeed: wind });
-  const bestLaundryDay = findBestLaundryDay(daily, settings);
+function renderDashboardDetail(title, html) {
+  if (!html) return '';
+  return `<details class="dashboard-detail"><summary>${escapeHtml(title)}</summary><div class="detail-content">${html}</div></details>`;
+}
 
-  const umbrellaLabel = precipProb >= 60 || precip > 0
-    ? (settings.commuteMode === 'bike' ? '自転車用レインウェアを忘れずに' : '傘を忘れずに')
-    : precipProb >= 30
-      ? (settings.commuteMode === 'bike' ? '自転車用レインウェアが安心' : '折り畳み傘が安心')
-      : '傘は不要そう';
-  const tempLabel = `${Math.round(minTemp)}℃〜${Math.round(maxTemp)}℃`;
-  const chips = [
-    { icon: '🧺', label: laundry.label, cls: laundry.status },
-    { icon: '👕', label: clothing.outfit, cls: 'info' },
-    { icon: '☔', label: umbrellaLabel, cls: precipProb >= 30 ? 'caution' : 'ok' },
-  ];
-
-  const bestDayHtml = bestLaundryDay
-    ? `<p class="quick-note">次の洗濯チャンス：<strong>${bestLaundryDay}</strong></p>`
-    : '<p class="quick-note">今週は雨・風に注意。部屋干しも準備しておくと安心です。</p>';
-
-  const locations = settings.locations || [];
-  const locationSwitcherHtml = locations.length > 1
-    ? `
-      <div class="location-switcher">
-        ${locations.map((loc, i) => `
-          <button type="button" class="location-pill ${i === (settings.activeLocationIndex ?? 0) ? 'active' : ''}" data-action="switch-location" data-idx="${i}">
-            ${escapeHtml(loc.label || `地点${i + 1}`)}
-          </button>
-        `).join('')}
-      </div>
-    `
-    : '';
-
-  const activityNoteHtml = isActivityDay
-    ? '<p class="quick-note activity-note">🏃 部活・習い事の日：熱中症・雨にいつもより注意してください。</p>'
-    : '';
-
-  return `
-    <section class="quick-summary card" aria-label="明日の結論">
-      ${locationSwitcherHtml}
-      <div class="quick-summary-main">
-        <div>
-          <div class="quick-kicker">3秒チェック</div>
-          <h2 class="quick-title">
-            ${renderWeatherVisual(daily.weather_code[tomorrowIdx], weatherInfo, 'weather-visual-quick')}
-            <span>明日は${weatherInfo.label}</span>
-          </h2>
-          <p class="quick-subtitle">${tempLabel}・降水確率${Math.round(precipProb)}%・最大風速${Math.round(wind)}km/h</p>
-        </div>
-        <div class="quick-actions">
-          <button class="quick-refresh" data-action="refresh" type="button">更新</button>
-          <button class="quick-share" data-action="share" data-share-text="${escapeHtml(shareText || '')}" type="button">📤 共有</button>
-        </div>
-      </div>
-      <div class="quick-chips">
-        ${chips.map(chip => `<span class="quick-chip ${chip.cls}">${chip.icon} ${escapeHtml(chip.label)}</span>`).join('')}
-      </div>
-      ${activityNoteHtml}
-      ${bestDayHtml}
-    </section>
-  `;
+function renderQuickSummary(data, settings, shareText, isActivityDay, baseTemp, hourlyTemps, fetchedAt, isCached) {
+  const d = data.daily;
+  const prob = d.precipitation_probability_max[1];
+  const wind = d.wind_speed_10m_max[1];
+  const month = parseLocalDate(d.time[1]).getMonth() + 1;
+  const laundry = getLaundryAdvice(d.precipitation_sum[1], prob, wind, settings, month);
+  const hours = buildHourlyRainProbabilities(data);
+  const outdoor = getLaundryAdvice(0, 0, wind, settings, month).status === 'ok';
+  const window = outdoor ? getLaundryTimeAdvice(hours, 30, settings.laundryPickupHour) : null;
+  const prefs = { ...settings, windSpeed: wind, precipitation: d.precipitation_sum[1] };
+  const belongings = new Set();
+  const kids = (settings.kids || []).map(kid => {
+    const advice = getClothingAdvice(baseTemp, kid.sensitivity, prob, d.uv_index_max?.[1], hourlyTemps, prefs);
+    advice.items.forEach(item => belongings.add(item));
+    return `<div class="overview-kid"><strong>${escapeHtml(kid.name || '子ども')}</strong><span>${escapeHtml(advice.outfit)}</span></div>`;
+  }).join('');
+  const assessment = getHeatstrokeAssessment(data, isActivityDay);
+  const heat = assessment.heat;
+  if (heat) belongings.add('水筒');
+  const info = getWeatherInfo(d.weather_code[1]);
+  const location = getActiveLocation(settings);
+  const switcher = settings.locations.length > 1 ? `<div class="location-switcher">${settings.locations.map((loc, i) =>
+    `<button type="button" class="location-pill ${i === settings.activeLocationIndex ? 'active' : ''}" data-action="switch-location" data-idx="${i}" aria-pressed="${i === settings.activeLocationIndex}">${escapeHtml(loc.label || `地点${i + 1}`)}</button>`).join('')}</div>` : '';
+  const periods = [{ name: '朝', from: 7, to: 10 }, { name: '昼', from: 12, to: 15 }, { name: '夕方', from: 15, to: 18 }];
+  const periodHtml = periods.map(period => {
+    const values = (data.hourly?.time || []).flatMap((time, i) => {
+      const h = Number(time.slice(11, 13));
+      return time.startsWith(d.time[1]) && h >= period.from && h < period.to ? [i] : [];
+    });
+    const temp = values.length ? `${Math.round(values.reduce((sum, i) => sum + Number(data.hourly.temperature_2m[i]), 0) / values.length)}℃` : '—';
+    const probabilities = values.map(i => data.hourly.precipitation_probability[i]).filter(value => value !== null && Number.isFinite(Number(value)));
+    const rain = probabilities.length === values.length && values.length ? `${Math.max(...probabilities)}%` : '不明';
+    const today = (data.hourly?.time || []).flatMap((time, i) => time.startsWith(d.time[0]) && Number(time.slice(11, 13)) >= period.from && Number(time.slice(11, 13)) < period.to ? [Number(data.hourly.temperature_2m[i])] : []);
+    const delta = today.length === values.length && values.length ? Math.round(Number.parseFloat(temp) - today.reduce((a, b) => a + b, 0) / today.length) : null;
+    return `<div><span>${period.name}</span><strong>${temp}</strong><small>☔ ${rain}</small>${delta === null ? '' : `<small>今日比 ${delta > 0 ? '+' : ''}${delta}℃</small>`}</div>`;
+  }).join('');
+  const timestamp = fetchedAt ? formatTimestamp(fetchedAt) : '不明';
+  const bestDay = findBestLaundryDay(d, settings);
+  return `<section class="quick-summary card overview" aria-label="明日のまとめ">
+    ${switcher}
+    <div class="overview-heading"><div><p class="quick-kicker">${escapeHtml(location.label || '地点')} · ${escapeHtml(location.city)}</p>
+    <h2>${info.emoji} 明日は${escapeHtml(info.label)}</h2></div>
+    <div class="quick-actions"><button class="quick-refresh" type="button" data-action="refresh">更新</button><button class="quick-share" type="button" data-action="share" data-share-text="${escapeHtml(shareText)}">共有</button></div></div>
+    <p class="overview-range">${Math.round(d.temperature_2m_min[1])}〜${Math.round(d.temperature_2m_max[1])}℃ <span>降水 ${prob}% · 風 ${Math.round(wind)}km/h</span></p>
+    <div class="overview-periods">${periodHtml}</div>
+    ${heat ? `<p class="overview-alert" role="status">${heat.icon} 熱中症：${heat.label} · ${heat.message}</p>` : ''}
+    <div class="overview-section"><h3>🧺 ${laundry.label}</h3><p>${escapeHtml(laundry.comments[0])}${window ? ` · 雨の少ない時間 ${window.start}〜${window.end}時` : ''}</p>${bestDay ? `<p>次の洗濯チャンス：${escapeHtml(bestDay)}</p>` : ''}</div>
+    <div class="overview-section"><h3>👕 服装</h3>${kids || '<p>設定で子どもを登録してください</p>'}</div>
+    <div class="overview-section"><h3>🎒 持ち物</h3><p>${escapeHtml([...belongings].join('・') || '天気に応じた追加の持ち物なし')}</p></div>
+    ${isActivityDay ? '<p class="overview-activity">🏃 部活・習い事の日</p>' : ''}
+    <p class="overview-updated">${isCached ? '前回取得（キャッシュ）' : '予報取得'}：${escapeHtml(timestamp)}</p>
+  </section>`;
 }
 
 function buildShareText(weatherInfo, laundryAdvice, kids, clothesBaseTemp, precipProb, uvIndex, hourlyTemps, settings = {}, windSpeed = 0) {

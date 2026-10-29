@@ -38,7 +38,7 @@ function getHeatLevel(maxTemp, humidity, isActivityDay) {
   return null; // No alert needed below 25°C
 }
 
-function renderHeatstrokeAlert(weatherData, isActivityDay) {
+function getHeatstrokeAssessment(weatherData, isActivityDay) {
   const daily = weatherData.daily;
   const tomorrowIdx = 1;
   const maxTemp = daily.temperature_2m_max[tomorrowIdx];
@@ -83,6 +83,11 @@ function renderHeatstrokeAlert(weatherData, isActivityDay) {
     heat = getHeatLevel(maxTemp, null, isActivityDay);
   }
 
+  return { heat, peakTemp, peakHour, maxTemp };
+}
+
+function renderHeatstrokeAlert(weatherData, isActivityDay) {
+  const { heat, peakTemp, peakHour, maxTemp } = getHeatstrokeAssessment(weatherData, isActivityDay);
   if (!heat) return '';
 
   const tips = [];
@@ -118,5 +123,5 @@ function renderHeatstrokeAlert(weatherData, isActivityDay) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { getHeatLevel, estimateWbgt };
+  module.exports = { getHeatLevel, estimateWbgt, getHeatstrokeAssessment };
 }

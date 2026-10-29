@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { buildSummary, getWeatherSeverity, buildHourlyRainProbabilities, getLaundryPickupAdvice } = require('../components/hourly');
+const { buildSummary, getWeatherSeverity, buildHourlyRainProbabilities, getLaundryPickupAdvice, getLaundryTimeAdvice } = require('../components/hourly');
 
 function slot(name, label) {
   return { name, info: { label } };
@@ -49,7 +49,7 @@ test('buildHourlyRainProbabilities covers 6:00-21:00 for tomorrow', () => {
   const hours = buildHourlyRainProbabilities(hourlyData({ 12: 80 }));
   assert.equal(hours.length, 16); // 6..21 inclusive
   assert.equal(hours.find(h => h.h === 12).prob, 80);
-  assert.equal(hours.find(h => h.h === 6).prob, 0); // missing hour defaults to 0
+  assert.equal(hours.find(h => h.h === 6).prob, null); // missing hour stays unknown
 });
 
 test('getLaundryPickupAdvice finds the first risky hour at/after 9am', () => {
@@ -62,4 +62,18 @@ test('getLaundryPickupAdvice finds the first risky hour at/after 9am', () => {
 test('getLaundryPickupAdvice returns null when no hour crosses the threshold', () => {
   const hours = buildHourlyRainProbabilities(hourlyData({ 12: 40 }));
   assert.equal(getLaundryPickupAdvice(hours), null);
+});
+
+
+test('missing rain hours cannot become outdoor laundry candidates', () => {
+  assert.equal(getLaundryTimeAdvice(buildHourlyRainProbabilities(hourlyData({}))), null);
+});
+
+test('outdoor laundry ends by the configured pickup time', () => {
+  const hours = Array.from({length: 16}, (_, i) => ({h: i + 6, prob: 10}));
+  assert.deepEqual(getLaundryTimeAdvice(hours, 30, '14'), {start: 6, end: 14, maxProb: 10});
+});
+
+test('predicted rainfall excludes a slot even when rain probability is low', () => {
+  assert.equal(getLaundryTimeAdvice([{h:12,prob:10,precip:0.5}]), null);
 });
